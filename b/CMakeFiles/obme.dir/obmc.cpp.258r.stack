@@ -1,0 +1,1203 @@
+
+;; Function void obmc(imgpel**, imgpel*, mvinfo*, int, int, int, int) (_Z4obmcPPcS_P6mvinfoiiii, funcdef_no=1384, decl_uid=33296, cgraph_uid=400, symbol_order=402)
+
+starting the processing of deferred insns
+ending the processing of deferred insns
+
+
+void obmc(imgpel**, imgpel*, mvinfo*, int, int, int, int)
+
+Dataflow summary:
+;;  invalidated by call 	 0 [ax] 1 [dx] 2 [cx] 4 [si] 5 [di] 8 [st] 9 [st(1)] 10 [st(2)] 11 [st(3)] 12 [st(4)] 13 [st(5)] 14 [st(6)] 15 [st(7)] 17 [flags] 18 [fpsr] 19 [fpcr] 21 [xmm0] 22 [xmm1] 23 [xmm2] 24 [xmm3] 25 [xmm4] 26 [xmm5] 27 [xmm6] 28 [xmm7] 29 [mm0] 30 [mm1] 31 [mm2] 32 [mm3] 33 [mm4] 34 [mm5] 35 [mm6] 36 [mm7] 37 [r8] 38 [r9] 39 [r10] 40 [r11] 45 [xmm8] 46 [xmm9] 47 [xmm10] 48 [xmm11] 49 [xmm12] 50 [xmm13] 51 [xmm14] 52 [xmm15] 53 [] 54 [] 55 [] 56 [] 57 [] 58 [] 59 [] 60 [] 61 [] 62 [] 63 [] 64 [] 65 [] 66 [] 67 [] 68 [] 69 [] 70 [] 71 [] 72 [] 73 [] 74 [] 75 [] 76 [] 77 [] 78 [] 79 [] 80 []
+;;  hardware regs used 	 7 [sp]
+;;  regular block artificial uses 	 6 [bp] 7 [sp]
+;;  eh block artificial uses 	 6 [bp] 7 [sp] 16 [argp] 20 [frame]
+;;  entry block defs 	 0 [ax] 1 [dx] 2 [cx] 4 [si] 5 [di] 6 [bp] 7 [sp] 20 [frame] 21 [xmm0] 22 [xmm1] 23 [xmm2] 24 [xmm3] 25 [xmm4] 26 [xmm5] 27 [xmm6] 28 [xmm7] 37 [r8] 38 [r9]
+;;  exit block uses 	 6 [bp] 7 [sp] 20 [frame]
+;;  regs ever live 	 0[ax] 1[dx] 2[cx] 4[si] 5[di] 6[bp] 17[flags] 37[r8] 38[r9]
+;;  ref usage 	r0={81d,86u} r1={31d,33u,15e} r2={3d,3u} r4={5d,6u} r5={4d,5u} r6={3d,82u} r7={3d,14u} r17={50d,3u} r20={1d,1u,16e} r21={1d} r22={1d} r23={1d} r24={1d} r25={1d} r26={1d} r27={1d} r28={1d} r37={1d,1u} r38={1d,1u} 
+;;    total ref usage 457{191d,235u,31e} in 153{153 regular + 0 call} insns.
+(note 1 0 9 NOTE_INSN_DELETED)
+;; basic block 2, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 0, next block 3, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       ENTRY (FALLTHRU)
+;; bb 2 artificial_defs: { }
+;; bb 2 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 1 [dx] 2 [cx] 4 [si] 5 [di] 6 [bp] 7 [sp] 20 [frame] 37 [r8] 38 [r9]
+;; lr  use 	 1 [dx] 2 [cx] 4 [si] 5 [di] 6 [bp] 7 [sp] 37 [r8] 38 [r9]
+;; lr  def 	 0 [ax] 1 [dx] 5 [di] 17 [flags]
+(note 9 1 206 2 [bb 2] NOTE_INSN_BASIC_BLOCK)
+(insn/f 206 9 207 2 (set (mem:DI (pre_dec:DI (reg/f:DI 7 sp)) [0  S8 A8])
+        (reg/f:DI 6 bp)) /home/kai/git_repos/obme/obmc.cpp:9 -1
+     (nil))
+(insn/f 207 206 208 2 (set (reg/f:DI 6 bp)
+        (reg/f:DI 7 sp)) /home/kai/git_repos/obme/obmc.cpp:9 -1
+     (nil))
+(insn 208 207 209 2 (set (mem/v:BLK (scratch:DI) [0  A8])
+        (unspec:BLK [
+                (mem/v:BLK (scratch:DI) [0  A8])
+            ] UNSPEC_MEMORY_BLOCKAGE)) /home/kai/git_repos/obme/obmc.cpp:9 -1
+     (nil))
+(note 209 208 2 2 NOTE_INSN_PROLOGUE_END)
+(insn 2 209 3 2 (set (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -56 [0xffffffffffffffc8])) [0 refFrame+0 S8 A64])
+        (reg:DI 5 di [ refFrame ])) /home/kai/git_repos/obme/obmc.cpp:9 89 {*movdi_internal}
+     (nil))
+(insn 3 2 4 2 (set (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -64 [0xffffffffffffffc0])) [0 currFrame+0 S8 A64])
+        (reg:DI 4 si [ currFrame ])) /home/kai/git_repos/obme/obmc.cpp:9 89 {*movdi_internal}
+     (nil))
+(insn 4 3 5 2 (set (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -72 [0xffffffffffffffb8])) [0 mvs+0 S8 A64])
+        (reg:DI 1 dx [ mvs ])) /home/kai/git_repos/obme/obmc.cpp:9 89 {*movdi_internal}
+     (nil))
+(insn 5 4 6 2 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -76 [0xffffffffffffffb4])) [0 width+0 S4 A32])
+        (reg:SI 2 cx [ width ])) /home/kai/git_repos/obme/obmc.cpp:9 90 {*movsi_internal}
+     (nil))
+(insn 6 5 7 2 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -80 [0xffffffffffffffb0])) [0 height+0 S4 A32])
+        (reg:SI 37 r8 [ height ])) /home/kai/git_repos/obme/obmc.cpp:9 90 {*movsi_internal}
+     (nil))
+(insn 7 6 8 2 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -84 [0xffffffffffffffac])) [0 blocksize+0 S4 A32])
+        (reg:SI 38 r9 [ blocksize ])) /home/kai/git_repos/obme/obmc.cpp:9 90 {*movsi_internal}
+     (nil))
+(note 8 7 11 2 NOTE_INSN_FUNCTION_BEG)
+(insn 11 8 202 2 (set (reg:SI 0 ax [139])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -84 [0xffffffffffffffac])) [0 blocksize+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:11 90 {*movsi_internal}
+     (nil))
+(insn 202 11 203 2 (parallel [
+            (set (reg:SI 1 dx [138])
+                (ashiftrt:SI (reg:SI 0 ax [139])
+                    (const_int 31 [0x1f])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:11 538 {ashrsi3_cvt}
+     (nil))
+(insn 203 202 13 2 (parallel [
+            (set (reg:SI 0 ax [137])
+                (div:SI (reg:SI 0 ax [139])
+                    (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                            (const_int 16 [0x10])) [0 overlap+0 S4 A64])))
+            (set (reg:SI 1 dx [138])
+                (mod:SI (reg:SI 0 ax [139])
+                    (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                            (const_int 16 [0x10])) [0 overlap+0 S4 A64])))
+            (use (reg:SI 1 dx [138]))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:11 344 {*divmodsi4_noext}
+     (nil))
+(insn 13 203 14 2 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -36 [0xffffffffffffffdc])) [0 ratio+0 S4 A32])
+        (reg:SI 0 ax [137])) /home/kai/git_repos/obme/obmc.cpp:11 90 {*movsi_internal}
+     (nil))
+(insn 14 13 15 2 (set (reg:SI 0 ax [140])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -76 [0xffffffffffffffb4])) [0 width+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:13 90 {*movsi_internal}
+     (nil))
+(insn 15 14 16 2 (parallel [
+            (set (reg:SI 0 ax [orig:87 D.34928 ] [87])
+                (mult:SI (reg:SI 0 ax [140])
+                    (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                            (const_int -80 [0xffffffffffffffb0])) [0 height+0 S4 A32])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:13 305 {*mulsi3_1}
+     (nil))
+(insn 16 15 192 2 (set (reg:SI 1 dx [141])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int 16 [0x10])) [0 overlap+0 S4 A64])) /home/kai/git_repos/obme/obmc.cpp:13 90 {*movsi_internal}
+     (nil))
+(insn 192 16 17 2 (set (reg:SI 5 di [orig:88 D.34928 ] [88])
+        (reg:SI 1 dx [141])) /home/kai/git_repos/obme/obmc.cpp:13 90 {*movsi_internal}
+     (nil))
+(insn 17 192 204 2 (parallel [
+            (set (reg:SI 5 di [orig:88 D.34928 ] [88])
+                (mult:SI (reg:SI 5 di [orig:88 D.34928 ] [88])
+                    (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                            (const_int 16 [0x10])) [0 overlap+0 S4 A64])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:13 305 {*mulsi3_1}
+     (nil))
+(insn 204 17 205 2 (parallel [
+            (set (reg:SI 1 dx [143])
+                (ashiftrt:SI (reg:SI 0 ax [orig:87 D.34928 ] [87])
+                    (const_int 31 [0x1f])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:13 538 {ashrsi3_cvt}
+     (nil))
+(insn 205 204 19 2 (parallel [
+            (set (reg:SI 0 ax [142])
+                (div:SI (reg:SI 0 ax [orig:87 D.34928 ] [87])
+                    (reg:SI 5 di [orig:88 D.34928 ] [88])))
+            (set (reg:SI 1 dx [143])
+                (mod:SI (reg:SI 0 ax [orig:87 D.34928 ] [87])
+                    (reg:SI 5 di [orig:88 D.34928 ] [88])))
+            (use (reg:SI 1 dx [143]))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:13 344 {*divmodsi4_noext}
+     (nil))
+(insn 19 205 20 2 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -32 [0xffffffffffffffe0])) [0 numMV+0 S4 A32])
+        (reg:SI 0 ax [142])) /home/kai/git_repos/obme/obmc.cpp:13 90 {*movsi_internal}
+     (nil))
+(insn 20 19 173 2 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -48 [0xffffffffffffffd0])) [0 i+0 S4 A32])
+        (const_int 0 [0])) /home/kai/git_repos/obme/obmc.cpp:14 90 {*movsi_internal}
+     (nil))
+;;  succ:       3 (FALLTHRU)
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+;; basic block 3, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 2, next block 4, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       2 (FALLTHRU)
+;;              10 [100.0%] 
+;; bb 3 artificial_defs: { }
+;; bb 3 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	 0 [ax] 17 [flags]
+(code_label 173 20 21 3 7 "" [1 uses])
+(note 21 173 22 3 [bb 3] NOTE_INSN_BASIC_BLOCK)
+(insn 22 21 23 3 (set (reg:SI 0 ax [144])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -48 [0xffffffffffffffd0])) [0 i+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:14 90 {*movsi_internal}
+     (nil))
+(insn 23 22 24 3 (set (reg:CCGC 17 flags)
+        (compare:CCGC (reg:SI 0 ax [144])
+            (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                    (const_int -32 [0xffffffffffffffe0])) [0 numMV+0 S4 A32]))) /home/kai/git_repos/obme/obmc.cpp:14 7 {*cmpsi_1}
+     (nil))
+(jump_insn 24 23 25 3 (set (pc)
+        (if_then_else (ge (reg:CCGC 17 flags)
+                (const_int 0 [0]))
+            (label_ref:DI 187)
+            (pc))) /home/kai/git_repos/obme/obmc.cpp:14 612 {*jcc_1}
+     (nil)
+ -> 187)
+;;  succ:       11
+;;              4 (FALLTHRU)
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+;; basic block 4, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 3, next block 5, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       3 (FALLTHRU)
+;; bb 4 artificial_defs: { }
+;; bb 4 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	 0 [ax] 1 [dx] 17 [flags]
+(note 25 24 26 4 [bb 4] NOTE_INSN_BASIC_BLOCK)
+(insn 26 25 27 4 (set (reg:SI 0 ax [145])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -48 [0xffffffffffffffd0])) [0 i+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:17 90 {*movsi_internal}
+     (nil))
+(insn 27 26 28 4 (set (reg:DI 1 dx [orig:89 D.34929 ] [89])
+        (sign_extend:DI (reg:SI 0 ax [145]))) /home/kai/git_repos/obme/obmc.cpp:17 142 {*extendsidi2_rex64}
+     (nil))
+(insn 28 27 29 4 (set (reg:DI 0 ax [146])
+        (reg:DI 1 dx [orig:89 D.34929 ] [89])) /home/kai/git_repos/obme/obmc.cpp:17 89 {*movdi_internal}
+     (nil))
+(insn 29 28 30 4 (parallel [
+            (set (reg:DI 0 ax [146])
+                (ashift:DI (reg:DI 0 ax [146])
+                    (const_int 1 [0x1])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:17 512 {*ashldi3_1}
+     (nil))
+(insn 30 29 31 4 (parallel [
+            (set (reg:DI 0 ax [146])
+                (plus:DI (reg:DI 0 ax [146])
+                    (reg:DI 1 dx [orig:89 D.34929 ] [89])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:17 218 {*adddi_1}
+     (expr_list:REG_EQUAL (mult:DI (reg:DI 1 dx [orig:89 D.34929 ] [89])
+            (const_int 3 [0x3]))
+        (nil)))
+(insn 31 30 33 4 (parallel [
+            (set (reg:DI 0 ax [147])
+                (ashift:DI (reg:DI 0 ax [146])
+                    (const_int 3 [0x3])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:17 512 {*ashldi3_1}
+     (nil))
+(insn 33 31 34 4 (set (reg:DI 1 dx [orig:90 D.34929 ] [90])
+        (reg:DI 0 ax [146])) /home/kai/git_repos/obme/obmc.cpp:17 89 {*movdi_internal}
+     (nil))
+(insn 34 33 35 4 (set (reg/f:DI 0 ax [148])
+        (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -72 [0xffffffffffffffb8])) [0 mvs+0 S8 A64])) /home/kai/git_repos/obme/obmc.cpp:17 89 {*movdi_internal}
+     (nil))
+(insn 35 34 36 4 (parallel [
+            (set (reg/f:DI 0 ax [orig:91 D.34930 ] [91])
+                (plus:DI (reg/f:DI 0 ax [148])
+                    (reg:DI 1 dx [orig:90 D.34929 ] [90])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:17 218 {*adddi_1}
+     (expr_list:REG_EQUAL (plus:DI (mem/f/c:DI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -72 [0xffffffffffffffb8])) [0 mvs+0 S8 A64])
+            (reg:DI 1 dx [orig:90 D.34929 ] [90]))
+        (nil)))
+(insn 36 35 37 4 (set (reg:SI 0 ax [149])
+        (mem/j:SI (reg/f:DI 0 ax [orig:91 D.34930 ] [91]) [0 _20->iCx+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:17 90 {*movsi_internal}
+     (nil))
+(insn 37 36 38 4 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -28 [0xffffffffffffffe4])) [0 cX+0 S4 A32])
+        (reg:SI 0 ax [149])) /home/kai/git_repos/obme/obmc.cpp:17 90 {*movsi_internal}
+     (nil))
+(insn 38 37 39 4 (set (reg:SI 0 ax [150])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -48 [0xffffffffffffffd0])) [0 i+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:18 90 {*movsi_internal}
+     (nil))
+(insn 39 38 40 4 (set (reg:DI 1 dx [orig:92 D.34929 ] [92])
+        (sign_extend:DI (reg:SI 0 ax [150]))) /home/kai/git_repos/obme/obmc.cpp:18 142 {*extendsidi2_rex64}
+     (nil))
+(insn 40 39 41 4 (set (reg:DI 0 ax [151])
+        (reg:DI 1 dx [orig:92 D.34929 ] [92])) /home/kai/git_repos/obme/obmc.cpp:18 89 {*movdi_internal}
+     (nil))
+(insn 41 40 42 4 (parallel [
+            (set (reg:DI 0 ax [151])
+                (ashift:DI (reg:DI 0 ax [151])
+                    (const_int 1 [0x1])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:18 512 {*ashldi3_1}
+     (nil))
+(insn 42 41 43 4 (parallel [
+            (set (reg:DI 0 ax [151])
+                (plus:DI (reg:DI 0 ax [151])
+                    (reg:DI 1 dx [orig:92 D.34929 ] [92])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:18 218 {*adddi_1}
+     (expr_list:REG_EQUAL (mult:DI (reg:DI 1 dx [orig:92 D.34929 ] [92])
+            (const_int 3 [0x3]))
+        (nil)))
+(insn 43 42 45 4 (parallel [
+            (set (reg:DI 0 ax [152])
+                (ashift:DI (reg:DI 0 ax [151])
+                    (const_int 3 [0x3])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:18 512 {*ashldi3_1}
+     (nil))
+(insn 45 43 46 4 (set (reg:DI 1 dx [orig:93 D.34929 ] [93])
+        (reg:DI 0 ax [151])) /home/kai/git_repos/obme/obmc.cpp:18 89 {*movdi_internal}
+     (nil))
+(insn 46 45 47 4 (set (reg/f:DI 0 ax [153])
+        (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -72 [0xffffffffffffffb8])) [0 mvs+0 S8 A64])) /home/kai/git_repos/obme/obmc.cpp:18 89 {*movdi_internal}
+     (nil))
+(insn 47 46 48 4 (parallel [
+            (set (reg/f:DI 0 ax [orig:94 D.34930 ] [94])
+                (plus:DI (reg/f:DI 0 ax [153])
+                    (reg:DI 1 dx [orig:93 D.34929 ] [93])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:18 218 {*adddi_1}
+     (expr_list:REG_EQUAL (plus:DI (mem/f/c:DI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -72 [0xffffffffffffffb8])) [0 mvs+0 S8 A64])
+            (reg:DI 1 dx [orig:93 D.34929 ] [93]))
+        (nil)))
+(insn 48 47 52 4 (set (reg:SI 1 dx [orig:95 D.34928 ] [95])
+        (mem/j:SI (plus:DI (reg/f:DI 0 ax [orig:94 D.34930 ] [94])
+                (const_int 8 [0x8])) [0 _24->iMvx+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:18 90 {*movsi_internal}
+     (nil))
+(insn 52 48 53 4 (set (reg:SI 0 ax [157])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -28 [0xffffffffffffffe4])) [0 cX+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:18 90 {*movsi_internal}
+     (nil))
+(insn 53 52 54 4 (parallel [
+            (set (reg:SI 0 ax [156])
+                (plus:SI (reg:SI 0 ax [157])
+                    (reg:SI 1 dx [orig:95 D.34928 ] [95])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:18 217 {*addsi_1}
+     (expr_list:REG_EQUAL (plus:SI (reg:SI 1 dx [orig:95 D.34928 ] [95])
+            (mem/c:SI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -28 [0xffffffffffffffe4])) [0 cX+0 S4 A32]))
+        (nil)))
+(insn 54 53 55 4 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -24 [0xffffffffffffffe8])) [0 mvX+0 S4 A32])
+        (reg:SI 0 ax [156])) /home/kai/git_repos/obme/obmc.cpp:18 90 {*movsi_internal}
+     (nil))
+(insn 55 54 56 4 (set (reg:SI 0 ax [158])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -48 [0xffffffffffffffd0])) [0 i+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:19 90 {*movsi_internal}
+     (nil))
+(insn 56 55 57 4 (set (reg:DI 1 dx [orig:96 D.34929 ] [96])
+        (sign_extend:DI (reg:SI 0 ax [158]))) /home/kai/git_repos/obme/obmc.cpp:19 142 {*extendsidi2_rex64}
+     (nil))
+(insn 57 56 58 4 (set (reg:DI 0 ax [159])
+        (reg:DI 1 dx [orig:96 D.34929 ] [96])) /home/kai/git_repos/obme/obmc.cpp:19 89 {*movdi_internal}
+     (nil))
+(insn 58 57 59 4 (parallel [
+            (set (reg:DI 0 ax [159])
+                (ashift:DI (reg:DI 0 ax [159])
+                    (const_int 1 [0x1])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:19 512 {*ashldi3_1}
+     (nil))
+(insn 59 58 60 4 (parallel [
+            (set (reg:DI 0 ax [159])
+                (plus:DI (reg:DI 0 ax [159])
+                    (reg:DI 1 dx [orig:96 D.34929 ] [96])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:19 218 {*adddi_1}
+     (expr_list:REG_EQUAL (mult:DI (reg:DI 1 dx [orig:96 D.34929 ] [96])
+            (const_int 3 [0x3]))
+        (nil)))
+(insn 60 59 62 4 (parallel [
+            (set (reg:DI 0 ax [160])
+                (ashift:DI (reg:DI 0 ax [159])
+                    (const_int 3 [0x3])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:19 512 {*ashldi3_1}
+     (nil))
+(insn 62 60 63 4 (set (reg:DI 1 dx [orig:97 D.34929 ] [97])
+        (reg:DI 0 ax [159])) /home/kai/git_repos/obme/obmc.cpp:19 89 {*movdi_internal}
+     (nil))
+(insn 63 62 64 4 (set (reg/f:DI 0 ax [161])
+        (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -72 [0xffffffffffffffb8])) [0 mvs+0 S8 A64])) /home/kai/git_repos/obme/obmc.cpp:19 89 {*movdi_internal}
+     (nil))
+(insn 64 63 65 4 (parallel [
+            (set (reg/f:DI 0 ax [orig:98 D.34930 ] [98])
+                (plus:DI (reg/f:DI 0 ax [161])
+                    (reg:DI 1 dx [orig:97 D.34929 ] [97])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:19 218 {*adddi_1}
+     (expr_list:REG_EQUAL (plus:DI (mem/f/c:DI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -72 [0xffffffffffffffb8])) [0 mvs+0 S8 A64])
+            (reg:DI 1 dx [orig:97 D.34929 ] [97]))
+        (nil)))
+(insn 65 64 66 4 (set (reg:SI 0 ax [162])
+        (mem/j:SI (plus:DI (reg/f:DI 0 ax [orig:98 D.34930 ] [98])
+                (const_int 4 [0x4])) [0 _29->iCy+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:19 90 {*movsi_internal}
+     (nil))
+(insn 66 65 67 4 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -20 [0xffffffffffffffec])) [0 cY+0 S4 A32])
+        (reg:SI 0 ax [162])) /home/kai/git_repos/obme/obmc.cpp:19 90 {*movsi_internal}
+     (nil))
+(insn 67 66 68 4 (set (reg:SI 0 ax [163])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -48 [0xffffffffffffffd0])) [0 i+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:20 90 {*movsi_internal}
+     (nil))
+(insn 68 67 69 4 (set (reg:DI 1 dx [orig:99 D.34929 ] [99])
+        (sign_extend:DI (reg:SI 0 ax [163]))) /home/kai/git_repos/obme/obmc.cpp:20 142 {*extendsidi2_rex64}
+     (nil))
+(insn 69 68 70 4 (set (reg:DI 0 ax [164])
+        (reg:DI 1 dx [orig:99 D.34929 ] [99])) /home/kai/git_repos/obme/obmc.cpp:20 89 {*movdi_internal}
+     (nil))
+(insn 70 69 71 4 (parallel [
+            (set (reg:DI 0 ax [164])
+                (ashift:DI (reg:DI 0 ax [164])
+                    (const_int 1 [0x1])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:20 512 {*ashldi3_1}
+     (nil))
+(insn 71 70 72 4 (parallel [
+            (set (reg:DI 0 ax [164])
+                (plus:DI (reg:DI 0 ax [164])
+                    (reg:DI 1 dx [orig:99 D.34929 ] [99])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:20 218 {*adddi_1}
+     (expr_list:REG_EQUAL (mult:DI (reg:DI 1 dx [orig:99 D.34929 ] [99])
+            (const_int 3 [0x3]))
+        (nil)))
+(insn 72 71 74 4 (parallel [
+            (set (reg:DI 0 ax [165])
+                (ashift:DI (reg:DI 0 ax [164])
+                    (const_int 3 [0x3])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:20 512 {*ashldi3_1}
+     (nil))
+(insn 74 72 75 4 (set (reg:DI 1 dx [orig:100 D.34929 ] [100])
+        (reg:DI 0 ax [164])) /home/kai/git_repos/obme/obmc.cpp:20 89 {*movdi_internal}
+     (nil))
+(insn 75 74 76 4 (set (reg/f:DI 0 ax [166])
+        (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -72 [0xffffffffffffffb8])) [0 mvs+0 S8 A64])) /home/kai/git_repos/obme/obmc.cpp:20 89 {*movdi_internal}
+     (nil))
+(insn 76 75 77 4 (parallel [
+            (set (reg/f:DI 0 ax [orig:101 D.34930 ] [101])
+                (plus:DI (reg/f:DI 0 ax [166])
+                    (reg:DI 1 dx [orig:100 D.34929 ] [100])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:20 218 {*adddi_1}
+     (expr_list:REG_EQUAL (plus:DI (mem/f/c:DI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -72 [0xffffffffffffffb8])) [0 mvs+0 S8 A64])
+            (reg:DI 1 dx [orig:100 D.34929 ] [100]))
+        (nil)))
+(insn 77 76 81 4 (set (reg:SI 1 dx [orig:102 D.34928 ] [102])
+        (mem/j:SI (plus:DI (reg/f:DI 0 ax [orig:101 D.34930 ] [101])
+                (const_int 12 [0xc])) [0 _33->iMvy+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:20 90 {*movsi_internal}
+     (nil))
+(insn 81 77 82 4 (set (reg:SI 0 ax [170])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -20 [0xffffffffffffffec])) [0 cY+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:20 90 {*movsi_internal}
+     (nil))
+(insn 82 81 83 4 (parallel [
+            (set (reg:SI 0 ax [169])
+                (plus:SI (reg:SI 0 ax [170])
+                    (reg:SI 1 dx [orig:102 D.34928 ] [102])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:20 217 {*addsi_1}
+     (expr_list:REG_EQUAL (plus:SI (reg:SI 1 dx [orig:102 D.34928 ] [102])
+            (mem/c:SI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -20 [0xffffffffffffffec])) [0 cY+0 S4 A32]))
+        (nil)))
+(insn 83 82 84 4 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -16 [0xfffffffffffffff0])) [0 mvY+0 S4 A32])
+        (reg:SI 0 ax [169])) /home/kai/git_repos/obme/obmc.cpp:20 90 {*movsi_internal}
+     (nil))
+(insn 84 83 85 4 (set (reg:SI 0 ax [171])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -48 [0xffffffffffffffd0])) [0 i+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:21 90 {*movsi_internal}
+     (nil))
+(insn 85 84 86 4 (set (reg:DI 1 dx [orig:103 D.34929 ] [103])
+        (sign_extend:DI (reg:SI 0 ax [171]))) /home/kai/git_repos/obme/obmc.cpp:21 142 {*extendsidi2_rex64}
+     (nil))
+(insn 86 85 87 4 (set (reg:DI 0 ax [172])
+        (reg:DI 1 dx [orig:103 D.34929 ] [103])) /home/kai/git_repos/obme/obmc.cpp:21 89 {*movdi_internal}
+     (nil))
+(insn 87 86 88 4 (parallel [
+            (set (reg:DI 0 ax [172])
+                (ashift:DI (reg:DI 0 ax [172])
+                    (const_int 1 [0x1])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:21 512 {*ashldi3_1}
+     (nil))
+(insn 88 87 89 4 (parallel [
+            (set (reg:DI 0 ax [172])
+                (plus:DI (reg:DI 0 ax [172])
+                    (reg:DI 1 dx [orig:103 D.34929 ] [103])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:21 218 {*adddi_1}
+     (expr_list:REG_EQUAL (mult:DI (reg:DI 1 dx [orig:103 D.34929 ] [103])
+            (const_int 3 [0x3]))
+        (nil)))
+(insn 89 88 91 4 (parallel [
+            (set (reg:DI 0 ax [173])
+                (ashift:DI (reg:DI 0 ax [172])
+                    (const_int 3 [0x3])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:21 512 {*ashldi3_1}
+     (nil))
+(insn 91 89 92 4 (set (reg:DI 1 dx [orig:104 D.34929 ] [104])
+        (reg:DI 0 ax [172])) /home/kai/git_repos/obme/obmc.cpp:21 89 {*movdi_internal}
+     (nil))
+(insn 92 91 93 4 (set (reg/f:DI 0 ax [174])
+        (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -72 [0xffffffffffffffb8])) [0 mvs+0 S8 A64])) /home/kai/git_repos/obme/obmc.cpp:21 89 {*movdi_internal}
+     (nil))
+(insn 93 92 94 4 (parallel [
+            (set (reg/f:DI 0 ax [orig:105 D.34930 ] [105])
+                (plus:DI (reg/f:DI 0 ax [174])
+                    (reg:DI 1 dx [orig:104 D.34929 ] [104])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:21 218 {*adddi_1}
+     (expr_list:REG_EQUAL (plus:DI (mem/f/c:DI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -72 [0xffffffffffffffb8])) [0 mvs+0 S8 A64])
+            (reg:DI 1 dx [orig:104 D.34929 ] [104]))
+        (nil)))
+(insn 94 93 95 4 (set (reg:SI 0 ax [175])
+        (mem/j:SI (plus:DI (reg/f:DI 0 ax [orig:105 D.34930 ] [105])
+                (const_int 20 [0x14])) [0 _38->frame+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:21 90 {*movsi_internal}
+     (nil))
+(insn 95 94 96 4 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -12 [0xfffffffffffffff4])) [0 idx+0 S4 A32])
+        (reg:SI 0 ax [175])) /home/kai/git_repos/obme/obmc.cpp:21 90 {*movsi_internal}
+     (nil))
+(insn 96 95 97 4 (set (reg:SI 0 ax [176])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -12 [0xfffffffffffffff4])) [0 idx+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:25 90 {*movsi_internal}
+     (nil))
+(insn 97 96 201 4 (set (reg:DI 0 ax [orig:106 D.34929 ] [106])
+        (sign_extend:DI (reg:SI 0 ax [176]))) /home/kai/git_repos/obme/obmc.cpp:25 142 {*extendsidi2_rex64}
+     (nil))
+(insn 201 97 99 4 (set (reg:DI 1 dx [orig:107 D.34929 ] [107])
+        (mult:DI (reg:DI 0 ax [orig:106 D.34929 ] [106])
+            (const_int 8 [0x8]))) /home/kai/git_repos/obme/obmc.cpp:25 214 {*leadi}
+     (nil))
+(insn 99 201 100 4 (set (reg/f:DI 0 ax [177])
+        (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -56 [0xffffffffffffffc8])) [0 refFrame+0 S8 A64])) /home/kai/git_repos/obme/obmc.cpp:25 89 {*movdi_internal}
+     (nil))
+(insn 100 99 101 4 (parallel [
+            (set (reg/f:DI 0 ax [orig:108 D.34931 ] [108])
+                (plus:DI (reg/f:DI 0 ax [177])
+                    (reg:DI 1 dx [orig:107 D.34929 ] [107])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:25 218 {*adddi_1}
+     (expr_list:REG_EQUAL (plus:DI (mem/f/c:DI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -56 [0xffffffffffffffc8])) [0 refFrame+0 S8 A64])
+            (reg:DI 1 dx [orig:107 D.34929 ] [107]))
+        (nil)))
+(insn 101 100 102 4 (set (reg/f:DI 0 ax [178])
+        (mem/f:DI (reg/f:DI 0 ax [orig:108 D.34931 ] [108]) [0 *_43+0 S8 A64])) /home/kai/git_repos/obme/obmc.cpp:25 89 {*movdi_internal}
+     (nil))
+(insn 102 101 103 4 (set (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -8 [0xfffffffffffffff8])) [0 ref+0 S8 A64])
+        (reg/f:DI 0 ax [178])) /home/kai/git_repos/obme/obmc.cpp:25 89 {*movdi_internal}
+     (nil))
+(insn 103 102 167 4 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -44 [0xffffffffffffffd4])) [0 y+0 S4 A32])
+        (const_int 0 [0])) /home/kai/git_repos/obme/obmc.cpp:26 90 {*movsi_internal}
+     (nil))
+;;  succ:       5 (FALLTHRU)
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+;; basic block 5, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 4, next block 6, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       4 (FALLTHRU)
+;;              9 [100.0%] 
+;; bb 5 artificial_defs: { }
+;; bb 5 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	 0 [ax] 17 [flags]
+(code_label 167 103 104 5 6 "" [1 uses])
+(note 104 167 105 5 [bb 5] NOTE_INSN_BASIC_BLOCK)
+(insn 105 104 106 5 (set (reg:SI 0 ax [179])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -44 [0xffffffffffffffd4])) [0 y+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:26 90 {*movsi_internal}
+     (nil))
+(insn 106 105 107 5 (set (reg:CCGC 17 flags)
+        (compare:CCGC (reg:SI 0 ax [179])
+            (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                    (const_int -84 [0xffffffffffffffac])) [0 blocksize+0 S4 A32]))) /home/kai/git_repos/obme/obmc.cpp:26 7 {*cmpsi_1}
+     (nil))
+(jump_insn 107 106 108 5 (set (pc)
+        (if_then_else (ge (reg:CCGC 17 flags)
+                (const_int 0 [0]))
+            (label_ref 170)
+            (pc))) /home/kai/git_repos/obme/obmc.cpp:26 612 {*jcc_1}
+     (nil)
+ -> 170)
+;;  succ:       10
+;;              6 (FALLTHRU)
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+;; basic block 6, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 5, next block 7, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       5 (FALLTHRU)
+;; bb 6 artificial_defs: { }
+;; bb 6 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	
+(note 108 107 109 6 [bb 6] NOTE_INSN_BASIC_BLOCK)
+(insn 109 108 161 6 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -40 [0xffffffffffffffd8])) [0 x+0 S4 A32])
+        (const_int 0 [0])) /home/kai/git_repos/obme/obmc.cpp:27 90 {*movsi_internal}
+     (nil))
+;;  succ:       7 (FALLTHRU)
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+;; basic block 7, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 6, next block 8, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       6 (FALLTHRU)
+;;              8 [100.0%] 
+;; bb 7 artificial_defs: { }
+;; bb 7 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	 0 [ax] 17 [flags]
+(code_label 161 109 110 7 5 "" [1 uses])
+(note 110 161 111 7 [bb 7] NOTE_INSN_BASIC_BLOCK)
+(insn 111 110 112 7 (set (reg:SI 0 ax [180])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -40 [0xffffffffffffffd8])) [0 x+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:27 90 {*movsi_internal}
+     (nil))
+(insn 112 111 113 7 (set (reg:CCGC 17 flags)
+        (compare:CCGC (reg:SI 0 ax [180])
+            (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                    (const_int -84 [0xffffffffffffffac])) [0 blocksize+0 S4 A32]))) /home/kai/git_repos/obme/obmc.cpp:27 7 {*cmpsi_1}
+     (nil))
+(jump_insn 113 112 114 7 (set (pc)
+        (if_then_else (ge (reg:CCGC 17 flags)
+                (const_int 0 [0]))
+            (label_ref 164)
+            (pc))) /home/kai/git_repos/obme/obmc.cpp:27 612 {*jcc_1}
+     (nil)
+ -> 164)
+;;  succ:       9
+;;              8 (FALLTHRU)
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+;; basic block 8, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 7, next block 9, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       7 (FALLTHRU)
+;; bb 8 artificial_defs: { }
+;; bb 8 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	 0 [ax] 1 [dx] 2 [cx] 4 [si] 5 [di] 17 [flags]
+(note 114 113 115 8 [bb 8] NOTE_INSN_BASIC_BLOCK)
+(insn 115 114 116 8 (set (reg:SI 1 dx [181])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -28 [0xffffffffffffffe4])) [0 cX+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 116 115 194 8 (set (reg:SI 0 ax [182])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -40 [0xffffffffffffffd8])) [0 x+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 194 116 118 8 (set (reg:SI 2 cx [orig:109 D.34928 ] [109])
+        (plus:SI (reg:SI 1 dx [181])
+            (reg:SI 0 ax [182]))) /home/kai/git_repos/obme/obmc.cpp:29 213 {*leasi}
+     (nil))
+(insn 118 194 119 8 (set (reg:SI 1 dx [183])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -20 [0xffffffffffffffec])) [0 cY+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 119 118 120 8 (set (reg:SI 0 ax [184])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -44 [0xffffffffffffffd4])) [0 y+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 120 119 121 8 (parallel [
+            (set (reg:SI 0 ax [orig:110 D.34928 ] [110])
+                (plus:SI (reg:SI 0 ax [184])
+                    (reg:SI 1 dx [183])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 217 {*addsi_1}
+     (expr_list:REG_EQUAL (plus:SI (mem/c:SI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -20 [0xffffffffffffffec])) [0 cY+0 S4 A32])
+            (mem/c:SI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -44 [0xffffffffffffffd4])) [0 y+0 S4 A32]))
+        (nil)))
+(insn 121 120 122 8 (parallel [
+            (set (reg:SI 0 ax [orig:111 D.34928 ] [111])
+                (mult:SI (reg:SI 0 ax [orig:110 D.34928 ] [110])
+                    (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                            (const_int -76 [0xffffffffffffffb4])) [0 width+0 S4 A32])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 305 {*mulsi3_1}
+     (nil))
+(insn 122 121 123 8 (parallel [
+            (set (reg:SI 0 ax [orig:112 D.34928 ] [112])
+                (plus:SI (reg:SI 0 ax [orig:111 D.34928 ] [111])
+                    (reg:SI 2 cx [orig:109 D.34928 ] [109])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 217 {*addsi_1}
+     (nil))
+(insn 123 122 124 8 (set (reg:DI 1 dx [orig:113 D.34932 ] [113])
+        (sign_extend:DI (reg:SI 0 ax [orig:112 D.34928 ] [112]))) /home/kai/git_repos/obme/obmc.cpp:29 142 {*extendsidi2_rex64}
+     (nil))
+(insn 124 123 195 8 (set (reg/f:DI 0 ax [185])
+        (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -64 [0xffffffffffffffc0])) [0 currFrame+0 S8 A64])) /home/kai/git_repos/obme/obmc.cpp:29 89 {*movdi_internal}
+     (nil))
+(insn 195 124 126 8 (set (reg/f:DI 2 cx [orig:114 D.34933 ] [114])
+        (plus:DI (reg:DI 1 dx [orig:113 D.34932 ] [113])
+            (reg/f:DI 0 ax [185]))) /home/kai/git_repos/obme/obmc.cpp:29 214 {*leadi}
+     (nil))
+(insn 126 195 127 8 (set (reg:SI 1 dx [186])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -28 [0xffffffffffffffe4])) [0 cX+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 127 126 196 8 (set (reg:SI 0 ax [187])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -40 [0xffffffffffffffd8])) [0 x+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 196 127 129 8 (set (reg:SI 4 si [orig:115 D.34928 ] [115])
+        (plus:SI (reg:SI 1 dx [186])
+            (reg:SI 0 ax [187]))) /home/kai/git_repos/obme/obmc.cpp:29 213 {*leasi}
+     (nil))
+(insn 129 196 130 8 (set (reg:SI 1 dx [188])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -20 [0xffffffffffffffec])) [0 cY+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 130 129 131 8 (set (reg:SI 0 ax [189])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -44 [0xffffffffffffffd4])) [0 y+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 131 130 132 8 (parallel [
+            (set (reg:SI 0 ax [orig:116 D.34928 ] [116])
+                (plus:SI (reg:SI 0 ax [189])
+                    (reg:SI 1 dx [188])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 217 {*addsi_1}
+     (expr_list:REG_EQUAL (plus:SI (mem/c:SI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -20 [0xffffffffffffffec])) [0 cY+0 S4 A32])
+            (mem/c:SI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -44 [0xffffffffffffffd4])) [0 y+0 S4 A32]))
+        (nil)))
+(insn 132 131 133 8 (parallel [
+            (set (reg:SI 0 ax [orig:117 D.34928 ] [117])
+                (mult:SI (reg:SI 0 ax [orig:116 D.34928 ] [116])
+                    (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                            (const_int -76 [0xffffffffffffffb4])) [0 width+0 S4 A32])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 305 {*mulsi3_1}
+     (nil))
+(insn 133 132 134 8 (parallel [
+            (set (reg:SI 0 ax [orig:118 D.34928 ] [118])
+                (plus:SI (reg:SI 0 ax [orig:117 D.34928 ] [117])
+                    (reg:SI 4 si [orig:115 D.34928 ] [115])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 217 {*addsi_1}
+     (nil))
+(insn 134 133 135 8 (set (reg:DI 1 dx [orig:119 D.34932 ] [119])
+        (sign_extend:DI (reg:SI 0 ax [orig:118 D.34928 ] [118]))) /home/kai/git_repos/obme/obmc.cpp:29 142 {*extendsidi2_rex64}
+     (nil))
+(insn 135 134 136 8 (set (reg/f:DI 0 ax [190])
+        (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -64 [0xffffffffffffffc0])) [0 currFrame+0 S8 A64])) /home/kai/git_repos/obme/obmc.cpp:29 89 {*movdi_internal}
+     (nil))
+(insn 136 135 137 8 (parallel [
+            (set (reg/f:DI 0 ax [orig:120 D.34933 ] [120])
+                (plus:DI (reg/f:DI 0 ax [190])
+                    (reg:DI 1 dx [orig:119 D.34932 ] [119])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 218 {*adddi_1}
+     (expr_list:REG_EQUAL (plus:DI (mem/f/c:DI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -64 [0xffffffffffffffc0])) [0 currFrame+0 S8 A64])
+            (reg:DI 1 dx [orig:119 D.34932 ] [119]))
+        (nil)))
+(insn 137 136 138 8 (set (reg:QI 0 ax [orig:121 D.34934 ] [121])
+        (mem:QI (reg/f:DI 0 ax [orig:120 D.34933 ] [120]) [0 *_59+0 S1 A8])) /home/kai/git_repos/obme/obmc.cpp:29 93 {*movqi_internal}
+     (nil))
+(insn 138 137 139 8 (set (reg:QI 5 di [orig:122 D.34935 ] [122])
+        (reg:QI 0 ax [orig:121 D.34934 ] [121])) /home/kai/git_repos/obme/obmc.cpp:29 93 {*movqi_internal}
+     (nil))
+(insn 139 138 140 8 (set (reg:SI 1 dx [191])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -24 [0xffffffffffffffe8])) [0 mvX+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 140 139 197 8 (set (reg:SI 0 ax [192])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -40 [0xffffffffffffffd8])) [0 x+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 197 140 142 8 (set (reg:SI 4 si [orig:123 D.34928 ] [123])
+        (plus:SI (reg:SI 1 dx [191])
+            (reg:SI 0 ax [192]))) /home/kai/git_repos/obme/obmc.cpp:29 213 {*leasi}
+     (nil))
+(insn 142 197 143 8 (set (reg:SI 1 dx [193])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -16 [0xfffffffffffffff0])) [0 mvY+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 143 142 144 8 (set (reg:SI 0 ax [194])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -44 [0xffffffffffffffd4])) [0 y+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 144 143 145 8 (parallel [
+            (set (reg:SI 0 ax [orig:124 D.34928 ] [124])
+                (plus:SI (reg:SI 0 ax [194])
+                    (reg:SI 1 dx [193])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 217 {*addsi_1}
+     (expr_list:REG_EQUAL (plus:SI (mem/c:SI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -16 [0xfffffffffffffff0])) [0 mvY+0 S4 A32])
+            (mem/c:SI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -44 [0xffffffffffffffd4])) [0 y+0 S4 A32]))
+        (nil)))
+(insn 145 144 146 8 (parallel [
+            (set (reg:SI 0 ax [orig:125 D.34928 ] [125])
+                (mult:SI (reg:SI 0 ax [orig:124 D.34928 ] [124])
+                    (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                            (const_int -76 [0xffffffffffffffb4])) [0 width+0 S4 A32])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 305 {*mulsi3_1}
+     (nil))
+(insn 146 145 147 8 (parallel [
+            (set (reg:SI 0 ax [orig:126 D.34928 ] [126])
+                (plus:SI (reg:SI 0 ax [orig:125 D.34928 ] [125])
+                    (reg:SI 4 si [orig:123 D.34928 ] [123])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 217 {*addsi_1}
+     (nil))
+(insn 147 146 148 8 (set (reg:DI 1 dx [orig:127 D.34932 ] [127])
+        (sign_extend:DI (reg:SI 0 ax [orig:126 D.34928 ] [126]))) /home/kai/git_repos/obme/obmc.cpp:29 142 {*extendsidi2_rex64}
+     (nil))
+(insn 148 147 149 8 (set (reg/f:DI 0 ax [195])
+        (mem/f/c:DI (plus:DI (reg/f:DI 6 bp)
+                (const_int -8 [0xfffffffffffffff8])) [0 ref+0 S8 A64])) /home/kai/git_repos/obme/obmc.cpp:29 89 {*movdi_internal}
+     (nil))
+(insn 149 148 150 8 (parallel [
+            (set (reg/f:DI 0 ax [orig:128 D.34933 ] [128])
+                (plus:DI (reg/f:DI 0 ax [195])
+                    (reg:DI 1 dx [orig:127 D.34932 ] [127])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 218 {*adddi_1}
+     (expr_list:REG_EQUAL (plus:DI (mem/f/c:DI (plus:DI (reg/f:DI 20 frame)
+                    (const_int -8 [0xfffffffffffffff8])) [0 ref+0 S8 A64])
+            (reg:DI 1 dx [orig:127 D.34932 ] [127]))
+        (nil)))
+(insn 150 149 151 8 (set (reg:QI 0 ax [orig:129 D.34934 ] [129])
+        (mem:QI (reg/f:DI 0 ax [orig:128 D.34933 ] [128]) [0 *_67+0 S1 A8])) /home/kai/git_repos/obme/obmc.cpp:29 93 {*movqi_internal}
+     (nil))
+(insn 151 150 152 8 (set (reg:SI 0 ax [orig:130 D.34928 ] [130])
+        (sign_extend:SI (reg:QI 0 ax [orig:129 D.34934 ] [129]))) /home/kai/git_repos/obme/obmc.cpp:29 148 {extendqisi2}
+     (nil))
+(insn 152 151 190 8 (set (reg:SI 1 dx [196])
+        (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -36 [0xffffffffffffffdc])) [0 ratio+0 S4 A32])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 190 152 153 8 (set (reg:SI 4 si [orig:131 D.34928 ] [131])
+        (reg:SI 1 dx [196])) /home/kai/git_repos/obme/obmc.cpp:29 90 {*movsi_internal}
+     (nil))
+(insn 153 190 198 8 (parallel [
+            (set (reg:SI 4 si [orig:131 D.34928 ] [131])
+                (mult:SI (reg:SI 4 si [orig:131 D.34928 ] [131])
+                    (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                            (const_int -36 [0xffffffffffffffdc])) [0 ratio+0 S4 A32])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 305 {*mulsi3_1}
+     (nil))
+(insn 198 153 199 8 (parallel [
+            (set (reg:SI 1 dx [198])
+                (ashiftrt:SI (reg:SI 0 ax [orig:130 D.34928 ] [130])
+                    (const_int 31 [0x1f])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 538 {ashrsi3_cvt}
+     (nil))
+(insn 199 198 200 8 (parallel [
+            (set (reg:SI 0 ax [197])
+                (div:SI (reg:SI 0 ax [orig:130 D.34928 ] [130])
+                    (reg:SI 4 si [orig:131 D.34928 ] [131])))
+            (set (reg:SI 1 dx [198])
+                (mod:SI (reg:SI 0 ax [orig:130 D.34928 ] [130])
+                    (reg:SI 4 si [orig:131 D.34928 ] [131])))
+            (use (reg:SI 1 dx [198]))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 344 {*divmodsi4_noext}
+     (nil))
+(insn 200 199 159 8 (parallel [
+            (set (reg:SI 0 ax [orig:134 D.34935 ] [134])
+                (plus:SI (reg:SI 0 ax [orig:133 D.34935 ] [133])
+                    (reg:SI 5 di [orig:122 D.34935 ] [122])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:29 217 {*addsi_1}
+     (nil))
+(insn 159 200 160 8 (set (mem:QI (reg/f:DI 2 cx [orig:114 D.34933 ] [114]) [0 *_53+0 S1 A8])
+        (reg:QI 0 ax [orig:135 D.34934 ] [135])) /home/kai/git_repos/obme/obmc.cpp:29 93 {*movqi_internal}
+     (nil))
+(insn 160 159 180 8 (parallel [
+            (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                        (const_int -40 [0xffffffffffffffd8])) [0 x+0 S4 A32])
+                (plus:SI (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                            (const_int -40 [0xffffffffffffffd8])) [0 x+0 S4 A32])
+                    (const_int 1 [0x1])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:27 217 {*addsi_1}
+     (nil))
+(jump_insn 180 160 181 8 (set (pc)
+        (label_ref 161)) /home/kai/git_repos/obme/obmc.cpp:27 654 {jump}
+     (nil)
+ -> 161)
+;;  succ:       7 [100.0%] 
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+(barrier 181 180 164)
+;; basic block 9, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 8, next block 10, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       7
+;; bb 9 artificial_defs: { }
+;; bb 9 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	 17 [flags]
+(code_label 164 181 165 9 4 "" [1 uses])
+(note 165 164 166 9 [bb 9] NOTE_INSN_BASIC_BLOCK)
+(insn 166 165 182 9 (parallel [
+            (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                        (const_int -44 [0xffffffffffffffd4])) [0 y+0 S4 A32])
+                (plus:SI (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                            (const_int -44 [0xffffffffffffffd4])) [0 y+0 S4 A32])
+                    (const_int 1 [0x1])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:26 217 {*addsi_1}
+     (nil))
+(jump_insn 182 166 183 9 (set (pc)
+        (label_ref 167)) /home/kai/git_repos/obme/obmc.cpp:26 654 {jump}
+     (nil)
+ -> 167)
+;;  succ:       5 [100.0%] 
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+(barrier 183 182 170)
+;; basic block 10, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 9, next block 11, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       5
+;; bb 10 artificial_defs: { }
+;; bb 10 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	 17 [flags]
+(code_label 170 183 171 10 3 "" [1 uses])
+(note 171 170 172 10 [bb 10] NOTE_INSN_BASIC_BLOCK)
+(insn 172 171 184 10 (parallel [
+            (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                        (const_int -48 [0xffffffffffffffd0])) [0 i+0 S4 A32])
+                (plus:SI (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                            (const_int -48 [0xffffffffffffffd0])) [0 i+0 S4 A32])
+                    (const_int 1 [0x1])))
+            (clobber (reg:CC 17 flags))
+        ]) /home/kai/git_repos/obme/obmc.cpp:14 217 {*addsi_1}
+     (nil))
+(jump_insn 184 172 185 10 (set (pc)
+        (label_ref 173)) /home/kai/git_repos/obme/obmc.cpp:14 654 {jump}
+     (nil)
+ -> 173)
+;;  succ:       3 [100.0%] 
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+(barrier 185 184 187)
+;; basic block 11, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 10, next block 1, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       3
+;; bb 11 artificial_defs: { }
+;; bb 11 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	
+(code_label 187 185 186 11 8 "" [1 uses])
+(note 186 187 188 11 [bb 11] NOTE_INSN_BASIC_BLOCK)
+(insn 188 186 210 11 (const_int 0 [0]) /home/kai/git_repos/obme/obmc.cpp:33 684 {nop}
+     (nil))
+(note 210 188 211 11 NOTE_INSN_EPILOGUE_BEG)
+(insn 211 210 212 11 (set (mem/v:BLK (scratch:DI) [0  A8])
+        (unspec:BLK [
+                (mem/v:BLK (scratch:DI) [0  A8])
+            ] UNSPEC_MEMORY_BLOCKAGE)) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (nil))
+(insn/f 212 211 213 11 (set (reg/f:DI 6 bp)
+        (mem:DI (post_inc:DI (reg/f:DI 7 sp)) [0  S8 A8])) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (expr_list:REG_CFA_DEF_CFA (plus:DI (reg/f:DI 7 sp)
+            (const_int 8 [0x8]))
+        (nil)))
+(jump_insn 213 212 214 11 (simple_return) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (nil)
+ -> simple_return)
+;;  succ:       EXIT [100.0%] 
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+(barrier 214 213 189)
+(note 189 214 0 NOTE_INSN_DELETED)
+
+;; Function void __static_initialization_and_destruction_0(int, int) (_Z41__static_initialization_and_destruction_0ii, funcdef_no=1565, decl_uid=34766, cgraph_uid=581, symbol_order=607)
+
+starting the processing of deferred insns
+ending the processing of deferred insns
+
+
+void __static_initialization_and_destruction_0(int, int)
+
+Dataflow summary:
+;;  invalidated by call 	 0 [ax] 1 [dx] 2 [cx] 4 [si] 5 [di] 8 [st] 9 [st(1)] 10 [st(2)] 11 [st(3)] 12 [st(4)] 13 [st(5)] 14 [st(6)] 15 [st(7)] 17 [flags] 18 [fpsr] 19 [fpcr] 21 [xmm0] 22 [xmm1] 23 [xmm2] 24 [xmm3] 25 [xmm4] 26 [xmm5] 27 [xmm6] 28 [xmm7] 29 [mm0] 30 [mm1] 31 [mm2] 32 [mm3] 33 [mm4] 34 [mm5] 35 [mm6] 36 [mm7] 37 [r8] 38 [r9] 39 [r10] 40 [r11] 45 [xmm8] 46 [xmm9] 47 [xmm10] 48 [xmm11] 49 [xmm12] 50 [xmm13] 51 [xmm14] 52 [xmm15] 53 [] 54 [] 55 [] 56 [] 57 [] 58 [] 59 [] 60 [] 61 [] 62 [] 63 [] 64 [] 65 [] 66 [] 67 [] 68 [] 69 [] 70 [] 71 [] 72 [] 73 [] 74 [] 75 [] 76 [] 77 [] 78 [] 79 [] 80 []
+;;  hardware regs used 	 7 [sp]
+;;  regular block artificial uses 	 6 [bp] 7 [sp]
+;;  eh block artificial uses 	 6 [bp] 7 [sp] 16 [argp] 20 [frame]
+;;  entry block defs 	 0 [ax] 1 [dx] 2 [cx] 4 [si] 5 [di] 6 [bp] 7 [sp] 20 [frame] 21 [xmm0] 22 [xmm1] 23 [xmm2] 24 [xmm3] 25 [xmm4] 26 [xmm5] 27 [xmm6] 28 [xmm7] 37 [r8] 38 [r9]
+;;  exit block uses 	 6 [bp] 7 [sp] 20 [frame]
+;;  regs ever live 	 0[ax] 1[dx] 4[si] 5[di] 6[bp] 7[sp] 17[flags]
+;;  ref usage 	r0={3d} r1={4d,1u} r2={3d} r4={4d,2u} r5={5d,3u} r6={3d,12u} r7={4d,12u} r8={2d} r9={2d} r10={2d} r11={2d} r12={2d} r13={2d} r14={2d} r15={2d} r17={5d,2u} r18={2d} r19={2d} r20={1d,1u} r21={3d} r22={3d} r23={3d} r24={3d} r25={3d} r26={3d} r27={3d} r28={3d} r29={2d} r30={2d} r31={2d} r32={2d} r33={2d} r34={2d} r35={2d} r36={2d} r37={3d} r38={3d} r39={2d} r40={2d} r45={2d} r46={2d} r47={2d} r48={2d} r49={2d} r50={2d} r51={2d} r52={2d} r53={2d} r54={2d} r55={2d} r56={2d} r57={2d} r58={2d} r59={2d} r60={2d} r61={2d} r62={2d} r63={2d} r64={2d} r65={2d} r66={2d} r67={2d} r68={2d} r69={2d} r70={2d} r71={2d} r72={2d} r73={2d} r74={2d} r75={2d} r76={2d} r77={2d} r78={2d} r79={2d} r80={2d} 
+;;    total ref usage 207{174d,33u,0e} in 18{16 regular + 2 call} insns.
+(note 1 0 5 NOTE_INSN_DELETED)
+;; basic block 2, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 0, next block 3, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       ENTRY (FALLTHRU)
+;; bb 2 artificial_defs: { }
+;; bb 2 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 4 [si] 5 [di] 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 4 [si] 5 [di] 6 [bp] 7 [sp]
+;; lr  def 	 17 [flags]
+(note 5 1 27 2 [bb 2] NOTE_INSN_BASIC_BLOCK)
+(insn/f 27 5 28 2 (set (mem:DI (pre_dec:DI (reg/f:DI 7 sp)) [0  S8 A8])
+        (reg/f:DI 6 bp)) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (nil))
+(insn/f 28 27 29 2 (set (reg/f:DI 6 bp)
+        (reg/f:DI 7 sp)) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (nil))
+(insn/f 29 28 30 2 (parallel [
+            (set (reg/f:DI 7 sp)
+                (plus:DI (reg/f:DI 7 sp)
+                    (const_int -16 [0xfffffffffffffff0])))
+            (clobber (reg:CC 17 flags))
+            (clobber (mem:BLK (scratch) [0  A8]))
+        ]) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (nil))
+(note 30 29 2 2 NOTE_INSN_PROLOGUE_END)
+(insn 2 30 3 2 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -4 [0xfffffffffffffffc])) [0 __initialize_p+0 S4 A32])
+        (reg:SI 5 di [ __initialize_p ])) /home/kai/git_repos/obme/obmc.cpp:33 90 {*movsi_internal}
+     (nil))
+(insn 3 2 4 2 (set (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                (const_int -8 [0xfffffffffffffff8])) [0 __priority+0 S4 A32])
+        (reg:SI 4 si [ __priority ])) /home/kai/git_repos/obme/obmc.cpp:33 90 {*movsi_internal}
+     (nil))
+(note 4 3 7 2 NOTE_INSN_FUNCTION_BEG)
+(insn 7 4 8 2 (set (reg:CCZ 17 flags)
+        (compare:CCZ (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                    (const_int -4 [0xfffffffffffffffc])) [0 __initialize_p+0 S4 A32])
+            (const_int 1 [0x1]))) /home/kai/git_repos/obme/obmc.cpp:33 7 {*cmpsi_1}
+     (nil))
+(jump_insn 8 7 9 2 (set (pc)
+        (if_then_else (ne (reg:CCZ 17 flags)
+                (const_int 0 [0]))
+            (label_ref:DI 25)
+            (pc))) /home/kai/git_repos/obme/obmc.cpp:33 612 {*jcc_1}
+     (nil)
+ -> 25)
+;;  succ:       3 (FALLTHRU)
+;;              5
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+;; basic block 3, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 2, next block 4, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       2 (FALLTHRU)
+;; bb 3 artificial_defs: { }
+;; bb 3 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	 17 [flags]
+(note 9 8 10 3 [bb 3] NOTE_INSN_BASIC_BLOCK)
+(insn 10 9 11 3 (set (reg:CCZ 17 flags)
+        (compare:CCZ (mem/c:SI (plus:DI (reg/f:DI 6 bp)
+                    (const_int -8 [0xfffffffffffffff8])) [0 __priority+0 S4 A32])
+            (const_int 65535 [0xffff]))) /home/kai/git_repos/obme/obmc.cpp:33 7 {*cmpsi_1}
+     (nil))
+(jump_insn 11 10 12 3 (set (pc)
+        (if_then_else (ne (reg:CCZ 17 flags)
+                (const_int 0 [0]))
+            (label_ref:DI 25)
+            (pc))) /home/kai/git_repos/obme/obmc.cpp:33 612 {*jcc_1}
+     (nil)
+ -> 25)
+;;  succ:       4 (FALLTHRU)
+;;              5
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+;; basic block 4, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 3, next block 5, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       3 (FALLTHRU)
+;; bb 4 artificial_defs: { }
+;; bb 4 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	 0 [ax] 1 [dx] 2 [cx] 4 [si] 5 [di] 8 [st] 9 [st(1)] 10 [st(2)] 11 [st(3)] 12 [st(4)] 13 [st(5)] 14 [st(6)] 15 [st(7)] 17 [flags] 18 [fpsr] 19 [fpcr] 21 [xmm0] 22 [xmm1] 23 [xmm2] 24 [xmm3] 25 [xmm4] 26 [xmm5] 27 [xmm6] 28 [xmm7] 29 [mm0] 30 [mm1] 31 [mm2] 32 [mm3] 33 [mm4] 34 [mm5] 35 [mm6] 36 [mm7] 37 [r8] 38 [r9] 39 [r10] 40 [r11] 45 [xmm8] 46 [xmm9] 47 [xmm10] 48 [xmm11] 49 [xmm12] 50 [xmm13] 51 [xmm14] 52 [xmm15] 53 [] 54 [] 55 [] 56 [] 57 [] 58 [] 59 [] 60 [] 61 [] 62 [] 63 [] 64 [] 65 [] 66 [] 67 [] 68 [] 69 [] 70 [] 71 [] 72 [] 73 [] 74 [] 75 [] 76 [] 77 [] 78 [] 79 [] 80 []
+(note 12 11 13 4 [bb 4] NOTE_INSN_BASIC_BLOCK)
+(insn 13 12 14 4 (set (reg:DI 5 di)
+        (symbol_ref:DI ("_ZStL8__ioinit") [flags 0x2]  <var_decl 0x7fbe9848e7e0 __ioinit>)) /usr/include/c++/5/iostream:74 89 {*movdi_internal}
+     (nil))
+(call_insn 14 13 15 4 (call (mem:QI (symbol_ref:DI ("_ZNSt8ios_base4InitC1Ev") [flags 0x41]  <function_decl 0x7fbe98797e58 __comp_ctor >) [0 __comp_ctor  S1 A8])
+        (const_int 0 [0])) /usr/include/c++/5/iostream:74 660 {*call}
+     (nil)
+    (expr_list:DI (use (reg:DI 5 di))
+        (nil)))
+(insn 15 14 16 4 (set (reg:DI 1 dx)
+        (symbol_ref:DI ("__dso_handle") [flags 0x42]  <var_decl 0x7fbe9820bab0 __dso_handle>)) /usr/include/c++/5/iostream:74 89 {*movdi_internal}
+     (nil))
+(insn 16 15 17 4 (set (reg:DI 4 si)
+        (symbol_ref:DI ("_ZStL8__ioinit") [flags 0x2]  <var_decl 0x7fbe9848e7e0 __ioinit>)) /usr/include/c++/5/iostream:74 89 {*movdi_internal}
+     (nil))
+(insn 17 16 18 4 (set (reg:DI 5 di)
+        (symbol_ref:DI ("_ZNSt8ios_base4InitD1Ev") [flags 0x41]  <function_decl 0x7fbe987aa0d8 __comp_dtor >)) /usr/include/c++/5/iostream:74 89 {*movdi_internal}
+     (nil))
+(call_insn 18 17 25 4 (set (reg:SI 0 ax)
+        (call (mem:QI (symbol_ref:DI ("__cxa_atexit") [flags 0x41]  <function_decl 0x7fbe98214000 __cxa_atexit>) [0 __cxa_atexit S1 A8])
+            (const_int 0 [0]))) /usr/include/c++/5/iostream:74 669 {*call_value}
+     (expr_list:REG_EH_REGION (const_int 0 [0])
+        (nil))
+    (expr_list:DI (use (reg:DI 5 di))
+        (expr_list:DI (use (reg:DI 4 si))
+            (expr_list:DI (use (reg:DI 1 dx))
+                (nil)))))
+;;  succ:       5 (FALLTHRU)
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+;; basic block 5, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 4, next block 1, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       4 (FALLTHRU)
+;;              2
+;;              3
+;; bb 5 artificial_defs: { }
+;; bb 5 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	
+(code_label 25 18 23 5 11 "" [2 uses])
+(note 23 25 24 5 [bb 5] NOTE_INSN_BASIC_BLOCK)
+(insn 24 23 31 5 (const_int 0 [0]) /home/kai/git_repos/obme/obmc.cpp:33 684 {nop}
+     (nil))
+(note 31 24 32 5 NOTE_INSN_EPILOGUE_BEG)
+(insn/f 32 31 33 5 (parallel [
+            (set (reg/f:DI 7 sp)
+                (plus:DI (reg/f:DI 6 bp)
+                    (const_int 8 [0x8])))
+            (set (reg/f:DI 6 bp)
+                (mem:DI (reg/f:DI 6 bp) [0  S8 A8]))
+            (clobber (mem:BLK (scratch) [0  A8]))
+        ]) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (expr_list:REG_CFA_DEF_CFA (plus:DI (reg/f:DI 7 sp)
+            (const_int 8 [0x8]))
+        (nil)))
+(jump_insn 33 32 34 5 (simple_return) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (nil)
+ -> simple_return)
+;;  succ:       EXIT [100.0%] 
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+(barrier 34 33 26)
+(note 26 34 0 NOTE_INSN_DELETED)
+
+;; Function (static initializers for /home/kai/git_repos/obme/obmc.cpp) (_GLOBAL__sub_I__Z4obmcPPcS_P6mvinfoiiii, funcdef_no=1566, decl_uid=34772, cgraph_uid=582, symbol_order=729)
+
+starting the processing of deferred insns
+ending the processing of deferred insns
+
+
+(static initializers for /home/kai/git_repos/obme/obmc.cpp)
+
+Dataflow summary:
+;;  invalidated by call 	 0 [ax] 1 [dx] 2 [cx] 4 [si] 5 [di] 8 [st] 9 [st(1)] 10 [st(2)] 11 [st(3)] 12 [st(4)] 13 [st(5)] 14 [st(6)] 15 [st(7)] 17 [flags] 18 [fpsr] 19 [fpcr] 21 [xmm0] 22 [xmm1] 23 [xmm2] 24 [xmm3] 25 [xmm4] 26 [xmm5] 27 [xmm6] 28 [xmm7] 29 [mm0] 30 [mm1] 31 [mm2] 32 [mm3] 33 [mm4] 34 [mm5] 35 [mm6] 36 [mm7] 37 [r8] 38 [r9] 39 [r10] 40 [r11] 45 [xmm8] 46 [xmm9] 47 [xmm10] 48 [xmm11] 49 [xmm12] 50 [xmm13] 51 [xmm14] 52 [xmm15] 53 [] 54 [] 55 [] 56 [] 57 [] 58 [] 59 [] 60 [] 61 [] 62 [] 63 [] 64 [] 65 [] 66 [] 67 [] 68 [] 69 [] 70 [] 71 [] 72 [] 73 [] 74 [] 75 [] 76 [] 77 [] 78 [] 79 [] 80 []
+;;  hardware regs used 	 7 [sp]
+;;  regular block artificial uses 	 6 [bp] 7 [sp]
+;;  eh block artificial uses 	 6 [bp] 7 [sp] 16 [argp] 20 [frame]
+;;  entry block defs 	 0 [ax] 1 [dx] 2 [cx] 4 [si] 5 [di] 6 [bp] 7 [sp] 20 [frame] 21 [xmm0] 22 [xmm1] 23 [xmm2] 24 [xmm3] 25 [xmm4] 26 [xmm5] 27 [xmm6] 28 [xmm7] 37 [r8] 38 [r9]
+;;  exit block uses 	 6 [bp] 7 [sp] 20 [frame]
+;;  regs ever live 	 4[si] 5[di] 6[bp] 7[sp]
+;;  ref usage 	r0={2d} r1={2d} r2={2d} r4={3d,1u} r5={3d,1u} r6={3d,3u} r7={3d,6u} r8={1d} r9={1d} r10={1d} r11={1d} r12={1d} r13={1d} r14={1d} r15={1d} r17={1d} r18={1d} r19={1d} r20={1d,1u} r21={2d} r22={2d} r23={2d} r24={2d} r25={2d} r26={2d} r27={2d} r28={2d} r29={1d} r30={1d} r31={1d} r32={1d} r33={1d} r34={1d} r35={1d} r36={1d} r37={2d} r38={2d} r39={1d} r40={1d} r45={1d} r46={1d} r47={1d} r48={1d} r49={1d} r50={1d} r51={1d} r52={1d} r53={1d} r54={1d} r55={1d} r56={1d} r57={1d} r58={1d} r59={1d} r60={1d} r61={1d} r62={1d} r63={1d} r64={1d} r65={1d} r66={1d} r67={1d} r68={1d} r69={1d} r70={1d} r71={1d} r72={1d} r73={1d} r74={1d} r75={1d} r76={1d} r77={1d} r78={1d} r79={1d} r80={1d} 
+;;    total ref usage 108{96d,12u,0e} in 7{6 regular + 1 call} insns.
+(note 1 0 3 NOTE_INSN_DELETED)
+;; basic block 2, loop depth 0, count 0, freq 0, maybe hot
+;;  prev block 0, next block 1, flags: (NEW, REACHABLE, RTL, MODIFIED)
+;;  pred:       ENTRY (FALLTHRU)
+;; bb 2 artificial_defs: { }
+;; bb 2 artificial_uses: { u-1(6){ }u-1(7){ }}
+;; lr  in  	 6 [bp] 7 [sp] 20 [frame]
+;; lr  use 	 6 [bp] 7 [sp]
+;; lr  def 	 0 [ax] 1 [dx] 2 [cx] 4 [si] 5 [di] 8 [st] 9 [st(1)] 10 [st(2)] 11 [st(3)] 12 [st(4)] 13 [st(5)] 14 [st(6)] 15 [st(7)] 17 [flags] 18 [fpsr] 19 [fpcr] 21 [xmm0] 22 [xmm1] 23 [xmm2] 24 [xmm3] 25 [xmm4] 26 [xmm5] 27 [xmm6] 28 [xmm7] 29 [mm0] 30 [mm1] 31 [mm2] 32 [mm3] 33 [mm4] 34 [mm5] 35 [mm6] 36 [mm7] 37 [r8] 38 [r9] 39 [r10] 40 [r11] 45 [xmm8] 46 [xmm9] 47 [xmm10] 48 [xmm11] 49 [xmm12] 50 [xmm13] 51 [xmm14] 52 [xmm15] 53 [] 54 [] 55 [] 56 [] 57 [] 58 [] 59 [] 60 [] 61 [] 62 [] 63 [] 64 [] 65 [] 66 [] 67 [] 68 [] 69 [] 70 [] 71 [] 72 [] 73 [] 74 [] 75 [] 76 [] 77 [] 78 [] 79 [] 80 []
+(note 3 1 11 2 [bb 2] NOTE_INSN_BASIC_BLOCK)
+(insn/f 11 3 12 2 (set (mem:DI (pre_dec:DI (reg/f:DI 7 sp)) [0  S8 A8])
+        (reg/f:DI 6 bp)) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (nil))
+(insn/f 12 11 13 2 (set (reg/f:DI 6 bp)
+        (reg/f:DI 7 sp)) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (nil))
+(note 13 12 2 2 NOTE_INSN_PROLOGUE_END)
+(note 2 13 5 2 NOTE_INSN_FUNCTION_BEG)
+(insn 5 2 6 2 (set (reg:SI 4 si)
+        (const_int 65535 [0xffff])) /home/kai/git_repos/obme/obmc.cpp:33 90 {*movsi_internal}
+     (nil))
+(insn 6 5 7 2 (set (reg:SI 5 di)
+        (const_int 1 [0x1])) /home/kai/git_repos/obme/obmc.cpp:33 90 {*movsi_internal}
+     (nil))
+(call_insn 7 6 14 2 (call (mem:QI (symbol_ref:DI ("_Z41__static_initialization_and_destruction_0ii") [flags 0x3]  <function_decl 0x7fbe9820dd80 __static_initialization_and_destruction_0>) [0 __static_initialization_and_destruction_0 S1 A8])
+        (const_int 0 [0])) /home/kai/git_repos/obme/obmc.cpp:33 660 {*call}
+     (expr_list:REG_EH_REGION (const_int 0 [0])
+        (nil))
+    (expr_list:SI (use (reg:SI 5 di))
+        (expr_list:SI (use (reg:SI 4 si))
+            (nil))))
+(note 14 7 15 2 NOTE_INSN_EPILOGUE_BEG)
+(insn/f 15 14 16 2 (set (reg/f:DI 6 bp)
+        (mem:DI (post_inc:DI (reg/f:DI 7 sp)) [0  S8 A8])) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (expr_list:REG_CFA_DEF_CFA (plus:DI (reg/f:DI 7 sp)
+            (const_int 8 [0x8]))
+        (nil)))
+(jump_insn 16 15 17 2 (simple_return) /home/kai/git_repos/obme/obmc.cpp:33 -1
+     (nil)
+ -> simple_return)
+;;  succ:       EXIT [100.0%] 
+;; lr  out 	 6 [bp] 7 [sp] 20 [frame]
+
+(barrier 17 16 10)
+(note 10 17 0 NOTE_INSN_DELETED)

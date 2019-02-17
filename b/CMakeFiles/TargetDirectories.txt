@@ -1,0 +1,3 @@
+/home/kai/git_repos/obme/b/CMakeFiles/edit_cache.dir
+/home/kai/git_repos/obme/b/CMakeFiles/rebuild_cache.dir
+/home/kai/git_repos/obme/b/CMakeFiles/obme.dir
