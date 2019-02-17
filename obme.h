@@ -11,10 +11,11 @@ void lowpassFilter(imgpel* src, imgpel* dst,
 void bilinear(imgpel *source, imgpel *buffer, int buffer_w, int buffer_h,
               int picwidth, int picheight);
 
-void obme(imgpel** refFrame, imgpel* currFrame, mvinfo* mvs,
-          int nRefs, int width, int height, int blocksize, int overlap);
+void obme(imgpel** refFrameU, imgpel* currFrameU,
+          imgpel** refFrameV, imgpel* currFrameV, mvinfo* mvs,
+          int nRefs, int width, int height, int blocksize);
 
 void obmc(imgpel** refFrame, imgpel* currFrame, mvinfo* mvs,
-          int width, int height, int blocksize, int overlap);
+          int width, int height, int blocksize);
 
 #endif

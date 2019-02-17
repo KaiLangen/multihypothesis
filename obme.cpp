@@ -18,7 +18,7 @@ int calcSAD(imgpel* blk1, imgpel* blk2, int width, int blocksize)
   return sad;
 }
 
-void ES(imgpel* trg, imgpel* ref, mvinfo& mv,
+void ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV, mvinfo& mv,
        int p, int center, int width, int height, int blocksize)
 {
     // search start location
@@ -41,10 +41,14 @@ void ES(imgpel* trg, imgpel* ref, mvinfo& mv,
             {
                 continue;
             }
-            cost = calcSAD(&trg[center],
-                           &ref[y*width + x],
-                                width,
-                                blocksize);
+            cost = calcSAD(&trgU[center],
+                           &refU[y*width + x],
+                           width,
+                           blocksize);
+            cost += calcSAD(&trgV[center],
+                            &refV[y*width + x],
+                            width,
+                            blocksize);
             if (cost < mincost) {
               loc = y * width + x;
               mincost = cost;
@@ -63,8 +67,9 @@ void ES(imgpel* trg, imgpel* ref, mvinfo& mv,
     mv.SAD = mincost;
 }
 
-void obme(imgpel** refFrame, imgpel* currFrame, mvinfo* mvs,
-          int nRefs, int width, int height, int blocksize, int overlap)
+void obme(imgpel** refFrameU, imgpel* currFrameU,
+          imgpel** refFrameV, imgpel* currFrameV, mvinfo* mvs,
+          int nRefs, int width, int height, int blocksize)
 {
   int idx;
   unsigned int sad;
@@ -73,12 +78,13 @@ void obme(imgpel** refFrame, imgpel* currFrame, mvinfo* mvs,
   int p = 7;
   /* for every block, search each reference frame and find the best matching block. */
   /* TODO: Would be more computationally efficient to have refs be the outter loop */
-  for (int x = 0; x < width - blocksize + 1; x += overlap) {
-    for (int y = 0; y < height - blocksize + 1; y += overlap) {
+  for (int x = 0; x < width - blocksize + 1; x += blocksize) {
+    for (int y = 0; y < height - blocksize + 1; y += blocksize) {
       sad = UINT_MAX;
       for (int i = 0; i < nRefs; i++) {
         idx = y * width + x;
-        ES(currFrame, refFrame[i], mv, p, idx, width, height, blocksize);
+        ES(currFrameU, currFrameV, refFrameU[i], refFrameV[i],
+           mv, p, idx, width, height, blocksize);
         if (mv.SAD < sad) {
 //          std::cout << sad << " > " << mv.SAD << std::endl;
           mvs[cnt] = mv;

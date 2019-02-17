@@ -18,7 +18,6 @@ int main()//int argc, char** argv)
   int nkeys = 6;
   int start = 80;
   int blocksize = 32;
-  int overlap = 32;
 
   if (!fp)
     exit(EXIT_FAILURE);
@@ -53,8 +52,7 @@ int main()//int argc, char** argv)
   imgpel* currChromaU = new imgpel[lsize];
   imgpel* currChromaV = new imgpel[lsize];
   imgpel* currBgr = new imgpel[lsize * 3];
-  mvinfo* mvsU = new mvinfo[lsize / (overlap * overlap)];
-  mvinfo* mvsV = new mvinfo[lsize / (overlap * overlap)];
+  mvinfo* mvs = new mvinfo[lsize / (blocksize * blocksize)];
   fseek(fp, fsize * (start + nkeys * key_skip / 2), SEEK_SET);
   fread(currFrame, fsize, 1, fp);
   
@@ -65,8 +63,9 @@ int main()//int argc, char** argv)
   Mat mchromaV_out(height, width, CV_8UC1, currChromaV);
   resize(mchromaU_in, mchromaU_out, mchromaU_out.size(), 0, 0, INTER_CUBIC); 
   resize(mchromaV_in, mchromaV_out, mchromaV_out.size(), 0, 0, INTER_CUBIC); 
-  imshow("REAL Current Chroma (U)", mchromaU_out);
   imshow("REAL Current Chroma (V)", mchromaV_out);
+  waitKey(0);
+  imshow("REAL Current Chroma (U)", mchromaU_out);
   waitKey(0);
 
   Mat myuv(3*(height>>1), width, CV_8UC1, currFrame);
@@ -76,14 +75,12 @@ int main()//int argc, char** argv)
   waitKey(0);
 
   /* Calculate MV's in U Chroma, then OBMC in the Luma domain */
-  obme(refChromaU, currChromaU, mvsU,
-       nkeys, width, height, blocksize, overlap);
-
-  obme(refChromaV, currChromaV, mvsV,
-       nkeys, width, height, blocksize, overlap);
+  obme(refChromaU, currChromaU,
+       refChromaV, currChromaV, mvs,
+       nkeys, width, height, blocksize);
 
   memset(currFrame, 0x0, lsize);
-  obmc(refFrame, currFrame, mvsU, mvsV, width, height, blocksize, overlap);
+  obmc(refFrame, currFrame, mvs, width, height, blocksize);
   Mat myuv2(3*height/2, width, CV_8UC1, currFrame);
   Mat mbgr2(height, width, CV_8UC3, currBgr);
   cvtColor(myuv2, mbgr2, COLOR_YUV2BGR_I420, 3);
@@ -94,8 +91,7 @@ int main()//int argc, char** argv)
   delete [] currChromaU;
   delete [] currChromaV;
   delete [] currBgr;
-  delete [] mvsU;
-  delete [] mvsV;
+  delete [] mvs;
   for(int i = 0; i < nkeys; i++) {
     delete [] refFrame[i];
     delete [] refChromaU[i];
