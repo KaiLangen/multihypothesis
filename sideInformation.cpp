@@ -16,7 +16,11 @@ SideInformation::SideInformation(Codec* codec, CorrModel* model)
   _width     = _codec->getFrameWidth();
   _height    = _codec->getFrameHeight();
   _frameSize = _width * _height;
-  _blockSize = 32;
+#ifdef OBMC
+  _blockSize = 8;
+#else
+  _blockSize = 16;
+#endif
   _nmv       = _width * _height / (_blockSize * _blockSize);
   _mvs       = new mvinfo[_nmv];
 }
@@ -49,32 +53,8 @@ SideInformation::createSideInfo(imgpel* prevChroma, imgpel* currChroma,
 
   ME(refUChroma, currUChroma, refVChroma, currVChroma, _mvs);
 
-#ifdef OBMC
-  OBMC(imgPrevKey, imgCurrFrame);
-#endif
   MC(imgPrevKey, imgCurrFrame);
 }
-
-void
-SideInformation::MC(imgpel* imgPrev, imgpel* imgDst)
-{
-  int cX, cY, mvX, mvY;
-  for (int i = 0; i < _nmv; i++) {
-    // get the "start" values: coordinates of the top-left pixel of each MB
-    // get the frame that the motion vector references, then increment it
-    cX   = _mvs[i].iCx;
-    cY   = _mvs[i].iCy;
-    mvX  = cX + _mvs[i].iMvx;
-    mvY  = cY + _mvs[i].iMvy;
-    
-    for (int j = 0; j < _blockSize; j++) {
-      memcpy(imgDst + cX + (cY + j) * _width,
-             imgPrev + mvX + (mvY + j) * _width, 
-             _blockSize);
-    }
-  }
-}
-
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -153,13 +133,12 @@ SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
   int p = 7;
   /* for every block, search each reference frame and find the best matching block. */
   /* TODO: Would be more computationally efficient to have refs be the outter loop */
-  for (int x = 0; x < _width - _blockSize + 1; x += _blockSize) {
-    for (int y = 0; y < _height - _blockSize + 1; y += _blockSize) {
+  for (int y = 0; y < _height - _blockSize + 1; y += _blockSize) {
+    for (int x = 0; x < _width - _blockSize + 1; x += _blockSize) {
       sad = UINT_MAX;
       idx = y * _width + x;
       ES(currFrameU, currFrameV, refFrameU, refFrameV, mv, p, idx);
       if (mv.SAD < sad) {
-//          std::cout << sad << " > " << mv.SAD << std::endl;
         mvs[cnt] = mv;
         mvs[cnt].frameNo = 0;
         sad = mv.SAD;
@@ -208,8 +187,10 @@ void SideInformation::getRecFrame(imgpel *imgBReference, int *iResidue, imgpel *
     }
 }
 
+#endif
+
 #if OBMC
-const int SideInformation::_H0[3][8][8] =
+const int SideInformation::_H[3][8][8] =
 {
   {
     {4, 5, 5, 5, 5, 5, 5, 4},
@@ -245,10 +226,10 @@ const int SideInformation::_H0[3][8][8] =
 
 
 void
-SideInformation::OBMC(imgpel* imgPrev, imgpel* imgDst)
+SideInformation::MC(imgpel* imgPrev, imgpel* imgDst)
 {
   int cX, cY, mvX[3], mvY[3];
-  int cand[3][8][8];
+  int cand[3];
   for (int i = 0; i < _nmv; i++) {
     // get the "start" values: coordinates of the top-left pixel of each MB
     cX   = _mvs[i].iCx;
@@ -265,7 +246,7 @@ SideInformation::OBMC(imgpel* imgPrev, imgpel* imgDst)
       mvX[1]  = cX + _mvs[i - _width / _blockSize].iMvx;
       mvY[1]  = cY + _mvs[i - _width / _blockSize].iMvy;
     }
-    // cand1 is above or below
+    // cand2 is left or right
     if (cX % _width == 0) {
       mvX[2]  = cX + _mvs[i + 1].iMvx;
       mvY[2]  = cY + _mvs[i + 1].iMvy;
@@ -278,12 +259,32 @@ SideInformation::OBMC(imgpel* imgPrev, imgpel* imgDst)
     for (int j = 0; j < _blockSize; j++)
       for (int k = 0; k < _blockSize; k++) {
         for(int c = 0; c < 3; c++)
-          cand[c][j][k] = _H[c][j][k] * imgPrev[mvX[0] + k + (mvY[0] + j) * _width];
+          cand[c] = _H[c][j][k] * imgPrev[mvX[c] + k + (mvY[c] + j) * _width];
+
         imgDst[cX + k + (cY + j) * _width] =
-          (cand[0][j][k] + cand[1][j][k] + cand[2][j][k]) / 8;
+          (cand[0] + cand[1] + cand[2] + 4) / 8;
       }
   }
 }
-#endif 
+#else 
 
-#endif
+void
+SideInformation::MC(imgpel* imgPrev, imgpel* imgDst)
+{
+  int cX, cY, mvX, mvY;
+  for (int i = 0; i < _nmv; i++) {
+    // get the "start" values: coordinates of the top-left pixel of each MB
+    // get the frame that the motion vector references, then increment it
+    cX   = _mvs[i].iCx;
+    cY   = _mvs[i].iCy;
+    mvX  = cX + _mvs[i].iMvx;
+    mvY  = cY + _mvs[i].iMvy;
+    
+    for (int j = 0; j < _blockSize; j++) {
+      memcpy(imgDst + cX + (cY + j) * _width,
+             imgPrev + mvX + (mvY + j) * _width, 
+             _blockSize);
+    }
+  }
+}
+#endif 

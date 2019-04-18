@@ -191,8 +191,6 @@ void Encoder::encodeWzFrame()
   // Main loop
   // ---------------------------------------------------------------------------
   for (int keyFrameNo = 0; keyFrameNo < _numFrames/_gop; keyFrameNo++) {
-    currFrame = _fb->getCurrFrame();
-    prevFrame = _fb->getPrevFrame();
     fseek(fReadPtr, (3*keyFrameNo*_frameSize)>>1, SEEK_SET);
     fread(prevFrame, _frameSize, 1, fReadPtr);
     for (int idx = 1; idx < _gop; idx++) {
@@ -311,9 +309,10 @@ void Encoder::encodeWzFrame()
 # endif // !HARDWARE_FLOW
       }
       _crcPtr = _crc;
-      tempPtr = prevFrame;
+      memcpy(prevFrame, currFrame, _frameSize);
+      /*tempPtr = prevFrame;
       prevFrame = currFrame;
-      currFrame = tempPtr;
+      currFrame = tempPtr*/;
     } // Finish encoding the WZ frame
   }
 
@@ -340,7 +339,7 @@ void Encoder::computeResidue(int* residue)
 {
   int     blockCount = 0;
   imgpel* refFrame = _fb->getPrevFrame();
-  imgpel* currentFrame     = _fb->getCurrFrame();
+  imgpel* currentFrame = _fb->getCurrFrame();
 
 # if !HARDWARE_OPT
   int* dirList = new int[_frameSize/64];

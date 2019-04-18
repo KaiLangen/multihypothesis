@@ -19,12 +19,11 @@
 #define HARDWARE_LDPC           1
 #define HARDWARE_CMS            1
 #define HARDWARE_OPT            1
-#define BIDIRECT_REFINEMENT     0
-#define SI_REFINEMENT           1
+#define OBMC                    0
 
 // Macros for encoder only
 #ifdef ENCODER
-# define TESTPATTERN            1
+# define TESTPATTERN            0
 # define DEBUG                  0
 #endif
 

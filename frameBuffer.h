@@ -17,6 +17,7 @@ public:
     _currChroma       = new imgpel[frameSize];
     _nextFrame        = new imgpel[frameSize];
     _sideInfoFrame    = new imgpel[frameSize];
+    _origFrame        = new imgpel[frameSize];
 
 //    if (gop != 0) {
 //      _refFrames      = new imgpel*[gop-1];
@@ -36,6 +37,7 @@ public:
   imgpel*  getCurrFrame()        { return _currFrame; };
   imgpel*  getCurrChroma()       { return _currChroma; };
   imgpel*  getNextFrame()        { return _nextFrame; };
+  imgpel*  getorigFrame()        { return _origFrame; };
   imgpel*  getSideInfoFrame()    { return _sideInfoFrame; };
 //  imgpel** getRefFrames()        { return _refFrames; };
   int*     getDctFrame()         { return _dctFrame; };
@@ -49,6 +51,7 @@ private:
   imgpel*  _currFrame;
   imgpel*  _currChroma;
   imgpel*  _nextFrame;
+  imgpel*  _origFrame;
   imgpel*  _sideInfoFrame;
 //  imgpel** _refFrames;
   int*     _dctFrame;

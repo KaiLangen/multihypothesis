@@ -28,7 +28,7 @@ Decoder::Decoder(char **argv)
   _files = FileManager::getManager();
 
   string wzFileName = argv[1];
-  string recFileName = wzFileName.substr(0, wzFileName.find(".bin")) + ".y";
+  string recFileName = wzFileName.substr(0, wzFileName.find(".bin")) + ".yuv";
 
   _files->addFile("wz",     argv[1])->openFile("rb");
   _files->addFile("key",    argv[2])->openFile("rb");
@@ -133,12 +133,11 @@ void Decoder::decodeWZframe()
   clock_t timeStart, timeEnd;
   double cpuTime;
 
-  imgpel* currLuma;
-  imgpel* prevLuma;
-  imgpel* tempPtr;
-  imgpel* currChroma = _fb->getCurrChroma();
-  imgpel* prevChroma = _fb->getPrevChroma();
-  imgpel* oriCurrFrame = _fb->getCurrFrame();
+  imgpel* currLuma     = _fb->getCurrFrame();
+  imgpel* prevLuma     = _fb->getPrevFrame();
+  imgpel* currChroma   = _fb->getCurrChroma();
+  imgpel* prevChroma   = _fb->getPrevChroma();
+  imgpel* oriCurrFrame = _fb->getorigFrame();
   imgpel* imgSI        = _fb->getSideInfoFrame();
 
   int* iDCT            = _fb->getDctFrame();
@@ -170,12 +169,10 @@ void Decoder::decodeWZframe()
   // ---------------------------------------------------------------------------
   for (int keyFrameNo = 0; keyFrameNo < _numFrames/_gop; keyFrameNo++) {
     // Read previous key frame
-    currLuma = _fb->getCurrFrame();
-    prevLuma = _fb->getPrevFrame();
     fseek(fKeyReadPtr, (3*(keyFrameNo)*_frameSize)>>1, SEEK_SET);
-    fread(_fb->getPrevFrame(), _frameSize, 1, fKeyReadPtr);
+    fread(prevLuma, _frameSize, 1, fKeyReadPtr);
     fread(prevChroma, _frameSize>>1, 1, fKeyReadPtr);
-    fwrite(_fb->getPrevFrame(), _frameSize, 1, fWritePtr);
+    fwrite(prevLuma, _frameSize, 1, fWritePtr);
     fwrite(prevChroma, _frameSize>>1, 1, fWritePtr);
 
     for (int idx = 1; idx < _gop; idx++) {
@@ -232,6 +229,14 @@ void Decoder::decodeWZframe()
         iOffset += QuantMatrix[_qp][y][x];
       }
 
+      _trans->invQuantization(iDecoded, iDecodedInvQ, iDCTResidual);
+      _trans->invDctTransform(iDecodedInvQ, iDCTBuffer);
+
+      _si->getRecFrame(prevLuma, iDCTBuffer, currLuma);
+#     if SKIP_MODE
+      getSkippedRecFrame(prevLuma, currLuma, _skipMask);
+#     endif
+
 # else // if !RESIDUAL_CODING
 
       _trans->quantization(iDCT, iDCTQ);
@@ -257,40 +262,37 @@ void Decoder::decodeWZframe()
       _trans->invDctTransform(iDecodedInvQ, currLuma);
 
 #     if SKIP_MODE
-      getSkippedRecFrame(prevKeyFrame, currLuma, _skipMask);
+      getSkippedRecFrame(prevLuma, currLuma, _skipMask);
 #     endif
 
 #   endif
 
       totalrate += dTotalRate;
       cout << endl;
-      //cout << "total bits (Y/frame): " << dTotalRate << " Kbytes" << endl;
+      cout << "total bytes (Y/frame): " << dTotalRate << " Kbytes" << endl;
 
-      //cout << "side information quality" << endl;
-      dPSNRSIAvg += calcPSNR(oriCurrFrame, imgSI, _frameSize);
+      float currPSNRSI = calcPSNR(oriCurrFrame, imgSI, _frameSize);
+      cout << "side information quality " << currPSNRSI << endl;
+      dPSNRSIAvg += currPSNRSI;
 
-      //cout << "wyner-ziv frame quality" << endl;
-      dPSNRAvg += calcPSNR(oriCurrFrame, currLuma, _frameSize);
+      float currPSNR = calcPSNR(oriCurrFrame, currLuma, _frameSize);
+      dPSNRAvg += currPSNR;
+      cout << "wyner-ziv frame quality " << currPSNR << endl;
       fwrite(_fb->getCurrFrame(), _frameSize, 1, fWritePtr);
       fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
 
-      // swap Luma frame buffers
-      tempPtr = prevLuma;
-      prevLuma = currLuma;
-      currLuma = tempPtr;
+      // copy curr buffers into prev buffer
+      memcpy(prevLuma, currLuma, _frameSize);
+      memcpy(prevChroma, currChroma, _frameSize>>1);
 
-      // swap Chroma frame buffers
-      tempPtr = prevChroma;
-      prevChroma = currChroma;
-      currChroma = tempPtr;
     }
   }
 
   timeEnd = clock();
   cpuTime = (timeEnd - timeStart) / CLOCKS_PER_SEC;
 
-  int iDecodeWZFrames = ((_numFrames-1)/_gop)*(_gop-1);
-  int iNumGOP = (_numFrames-1)/_gop;
+  int iNumGOP = _numFrames/_gop;
+  int iDecodeWZFrames = _numFrames - iNumGOP;
   int iTotalFrames = iDecodeWZFrames + iNumGOP;
 
   cout<<endl;
@@ -787,6 +789,23 @@ void Decoder::motionSearchInit(int maxsearch_range)
       _spiralHpelSearchY[k++] = i<<1;
     }
   }
+}
+
+void Decoder::getSkippedRecFrame(imgpel* imgPrevKey,imgpel* imgWZFrame, int* skipMask)
+{
+  for(int j=0;j<_frameHeight;j+=4)
+    for(int i=0;i<_frameWidth;i+=4)
+    {
+      int idx= i/4 + j/4*(_frameWidth/4);
+      if(skipMask[idx]==1)//skip
+      {
+        for(int y=0;y<4;y++)
+          for(int x=0;x<4;x++)
+          {
+            imgWZFrame[(i+x)+(j+y)*_frameWidth]=imgPrevKey[(i+x)+(j+y)*_frameWidth];
+          }
+      }
+    }
 }
 
 // -----------------------------------------------------------------------------

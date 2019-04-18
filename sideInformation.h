@@ -42,7 +42,6 @@ private:
 
 # if OBMC
   const static int _H[3][8][8];
-  void OBMC(imgpel* imgPrev, imgpel* imgDst);
 # endif
 
   mvinfo* _mvs;

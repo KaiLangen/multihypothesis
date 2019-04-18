@@ -42,6 +42,8 @@ private:
   int getSyndromeData();
   int decodeSkipMask();
 
+  void getSkippedRecFrame(imgpel* imgPrevFrame, imgpel* imgWZFrame, int* skipMask);
+
   void getSourceBit(int* dct_q, double* source, int q_i, int q_j, int curr_pos);
   double decodeLDPC(int* iQuantDCT, int* iDCT, int* iDecoded, int x, int y, int iOffset);
 
