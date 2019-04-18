@@ -124,7 +124,7 @@ void Encoder::encodeKeyFrame()
   cout << "Running JM to encode key frames" << endl;
 
   stringstream cmd(stringstream::in | stringstream::out);
-  cmd << "cd " << TOP_LVL_DIR << "/jm; ";
+  cmd << "cd " << BIN_DIR << "/jm; ";
   cmd << "./lencod.exe -d encoder_intra_main.cfg ";
   cmd << "-p InputFile=\"" << BIN_DIR << "/" << srcFileName << "\" ";
   cmd << "-p ReconFile=\"" << BIN_DIR << "/" << keyFileName << "\" ";

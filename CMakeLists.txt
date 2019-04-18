@@ -10,13 +10,17 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -da")
 find_package( OpenCV REQUIRED )
 
 execute_process (
-  COMMAND bash -c "date"
-  COMMAND bash -c "tar -xzvf ${CMAKE_CURRENT_SOURCE_DIR}/ldpca.tar.gz --directory ${CMAKE_BINARY_DIR}"
-  OUTPUT_VARIABLE outVar
+  COMMAND bash -c "cp ${CMAKE_CURRENT_SOURCE_DIR}/bowing.cfg ${CMAKE_BINARY_DIR}" 
 )
 
-message (
-  STATUS "${outVar}"
+execute_process (
+  COMMAND bash -c "tar -xzvf ${CMAKE_CURRENT_SOURCE_DIR}/ldpca.tar.gz \
+                   --directory ${CMAKE_BINARY_DIR}"
+)
+
+execute_process (
+  COMMAND bash -c "tar -xzvf ${CMAKE_CURRENT_SOURCE_DIR}/jm.tar.gz \
+                   --directory ${CMAKE_BINARY_DIR}"
 )
 
 add_library(utils bitstream.cpp
@@ -25,17 +29,6 @@ add_library(utils bitstream.cpp
                   ldpca.cpp
                   transform.cpp
 )
-
-# test bin
-#add_executable(obme decoder.cpp
-#                    lowpass.cpp
-#                    obmc.cpp
-#                    obme.cpp
-#                    obme.h
-#                    resampling.cpp
-#                    types.h
-#)
-#target_link_libraries(obme ${OpenCV_LIBS})
 
 # encoder
 add_executable(encoder encoder.cpp
