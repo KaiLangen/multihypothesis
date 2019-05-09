@@ -48,5 +48,5 @@ add_executable(decoder decoder.cpp
                        sideInformation.cpp
                        ME.cpp
 )
-target_link_libraries(decoder utils m ${OpenCV_LIBS})
+target_link_libraries(decoder utils m)
 

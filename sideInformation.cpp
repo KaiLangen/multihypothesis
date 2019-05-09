@@ -2,13 +2,11 @@
 #include <climits>
 #include <iostream>
 #include <cstdlib>
-#include <opencv2/opencv.hpp>
 
 #include "codec.h"
 #include "decoder.h"
 #include "sideInformation.h"
 
-using namespace cv;
 class Codec;
 
 
@@ -82,20 +80,14 @@ SideInformation::createSideInfo(imgpel* prevChroma, imgpel* currChroma,
     pad(refUChroma, rUPadded, 40);
     pad(refVChroma, rVPadded, 40);
 
+    // TODO: FIX ME TO WORK WITH PADDING
     ME(refUChroma, currUChroma, refVChroma, currVChroma);
     //copy mv
     for (int iter = 0; iter < 7; iter++) 
       spatialSmooth(rUPadded, rVPadded, cUPadded, cVPadded, _mvs, _blockSize, 40); 
-
-/*    for (int y = 0; y < _height / _blockSize; y++) {
-      for (int x = 0; x < _width / _blockSize; x++) {
-        int idx = x + y*(_width / _blockSize);
-        std::cout << _mvs[idx].iMvx <<  " " << _mvs[idx].iMvy << "\t";
-      }
-      std::cout << endl;
-    }*/
   }
 
+  // TODO: FIX MC TO WORK WITH PADDING
   MC(imgPrevKey, imgCurrFrame);
 }
 //#endif
