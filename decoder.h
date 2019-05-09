@@ -22,15 +22,21 @@ class LdpcaDec;
 class Decoder : public Codec
 {
 public:
-  Decoder(char** argv);
+  Decoder(map<string, string> configMap);
   ~Decoder() { /* TODO Remember to free memory space */ };
 
   void decodeWZframe();
 
-  int*  getSpiralSearchX()     { return _spiralSearchX; };
-  int*  getSpiralSearchY()     { return _spiralSearchY; };
-  int*  getSpiralHpelSearchX() { return _spiralHpelSearchX; };
-  int*  getSpiralHpelSearchY() { return _spiralHpelSearchY; };
+  int* getSpiralSearchX()     { return _spiralSearchX; };
+  int* getSpiralSearchY()     { return _spiralSearchY; };
+  int* getSpiralHpelSearchX() { return _spiralHpelSearchX; };
+  int* getSpiralHpelSearchY() { return _spiralHpelSearchY; };
+  int* getSkipMask()          { return _skipMask; };
+
+  int  _searchParam;
+  int  _searchBlock;
+  int  _MEMode;
+  int* _skipMask;
 
 private:
   void initialize();
@@ -63,7 +69,6 @@ private:
   LdpcaDec*         _ldpca;
 
   int               _maxValue[4][4];
-  int*              _skipMask;
 
 # if RESIDUAL_CODING | MODE_DECISION
   int               _rcBitPlaneNum;

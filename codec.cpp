@@ -1,4 +1,9 @@
 
+#include <sstream>
+#include <iostream>
+#include <fstream>
+#include <exception>
+
 #include "codec.h"
 
 const int Codec::ResidualBlockSize = 8;
@@ -190,3 +195,32 @@ const int Codec::HuffmanCodeLength[4][3][16] = {
    {  1,  3,  4,  5,  5,  5,  6,  6,  6,  7,  7,  7,  7,  7,  7,  3}}   // type 2
 };
 
+using namespace std;
+
+map<string, string>&
+readConfig(string filename)
+{
+  string line;
+  ifstream cfile(filename);
+  static map<string, string> configMap;
+  if (cfile)
+  {
+    while( getline(cfile, line) )
+    {
+      string key, value;
+      istringstream is_line(line);
+
+      // Check if the first non-whitespace is a #
+      if( getline(is_line >> ws, key, '=')  && !key.empty() && key[0] != '#')
+        if( getline(is_line >> ws, value) )
+          configMap[key] = value;
+    }
+    cfile.close();
+    return configMap;
+  }
+  else
+  {
+    cerr << "No such file: " << filename << endl;
+    throw invalid_argument("Invalid config file");
+  }
+}

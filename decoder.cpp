@@ -21,22 +21,25 @@
 
 using namespace std;
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-Decoder::Decoder(char **argv)
+
+Decoder::Decoder(map<string, string> configMap)
 {
+  // Parse files
   _files = FileManager::getManager();
-
-  string wzFileName = argv[1];
+  string wzFileName = configMap["WZFile"];
   string recFileName = wzFileName.substr(0, wzFileName.find(".bin")) + ".yuv";
-
-  _files->addFile("wz",     argv[1])->openFile("rb");
-  _files->addFile("key",    argv[2])->openFile("rb");
-  _files->addFile("chroma", argv[3])->openFile("rb");
-  _files->addFile("origin", argv[4])->openFile("rb");
+  _files->addFile("wz",     configMap["WZFile"])->openFile("rb");
+  _files->addFile("key",    configMap["KeyFile"])->openFile("rb");
+  _files->addFile("chroma", configMap["ChromaFile"])->openFile("rb");
+  _files->addFile("origin", configMap["SrcFile"])->openFile("rb");
   _files->addFile("rec",    recFileName.c_str())->openFile("wb");
 
   _bs = new Bitstream(1024, _files->getFile("wz")->getFileHandle());
+
+  // Parse other configuration parameters
+  _searchParam = atoi(configMap["searchWindowSize"].c_str());
+  _searchBlock = atoi(configMap["blockSize"].c_str());
+  _MEMode      = atoi(configMap["MEMode"].c_str());
 
   decodeWzHeader();
 
@@ -185,14 +188,40 @@ void Decoder::decodeWZframe()
       fseek(fReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
       fread(oriCurrFrame, _frameSize, 1, fReadPtr);
 
-      fseek(fChromaReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
-      fseek(fChromaReadPtr, _frameSize, SEEK_SET);
-      fread(currChroma, _frameSize>>1, 1, fChromaReadPtr);
 
       // ---------------------------------------------------------------------
       // STAGE 1 - Create side information
       // ---------------------------------------------------------------------
-      _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
+      if (_MEMode == 1) { // Oracle: predict from current Luma
+        // read Luma for prediction
+        fseek(fChromaReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
+        fread(currChroma, _frameSize, 1, fChromaReadPtr);
+        _si->createSideInfo(prevLuma, currChroma, prevLuma, imgSI);
+
+        // read actual Chroma for writing to file
+        fseek(fChromaReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
+        fseek(fChromaReadPtr, _frameSize, SEEK_CUR);
+        fread(currChroma, _frameSize>>1, 1, fChromaReadPtr);
+      }
+      else if (_MEMode == 2) { // Chroma mode: predict from coincident Chroma
+        fseek(fChromaReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
+        fseek(fChromaReadPtr, _frameSize, SEEK_CUR);
+        fread(currChroma, _frameSize>>1, 1, fChromaReadPtr);
+        _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
+      }
+      else 
+        throw invalid_argument("Invalid MEMode value");
+
+      float currPSNRSI0 = calcPSNR(oriCurrFrame, imgSI, _frameSize);
+      cout << "side information quality " << currPSNRSI0 << endl;
+
+      fwrite(imgSI, _frameSize, 1, fWritePtr);
+      fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
+
+      // copy curr buffers into prev buffer
+      memcpy(prevLuma, imgSI, _frameSize);
+      memcpy(prevChroma, currChroma, _frameSize>>1);
+      continue;
 
       // ---------------------------------------------------------------------
       // STAGE 2 -

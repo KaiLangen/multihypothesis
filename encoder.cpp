@@ -1,8 +1,6 @@
 
-#include <iostream>
 #include <sstream>
-#include <fstream>
-#include <exception>
+#include <iostream>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -47,7 +45,6 @@ Encoder::Encoder(map<string, string> configMap)
 
   _files->addFile("src", configMap["SrcFile"])
     ->openFile("rb");
-  cout << configMap["SrcFile"] << endl;
   _files->addFile("wz",  configMap["WZFile"])
     ->openFile("wb");
   _files->addFile("key", configMap["KeyFile"]);
@@ -121,10 +118,11 @@ void Encoder::encodeKeyFrame()
   string keyFileName = _files->getFile("key")->getFileName();
   string chromaFileName = _files->getFile("chroma")->getFileName();
 
+
   cout << "Running JM to encode key frames" << endl;
 
   stringstream cmd(stringstream::in | stringstream::out);
-  cmd << "cd " << BIN_DIR << "/jm; ";
+  cmd << "cd jm; ";
   cmd << "./lencod.exe -d encoder_intra_main.cfg ";
   cmd << "-p InputFile=\"" << BIN_DIR << "/" << srcFileName << "\" ";
   cmd << "-p ReconFile=\"" << BIN_DIR << "/" << keyFileName << "\" ";
@@ -137,8 +135,10 @@ void Encoder::encodeKeyFrame()
   cmd << "cp stats.dat " << BIN_DIR;
   system(cmd.str().c_str());
 
+  cout << "Encoding chroma planes" << endl << endl;
+
   stringstream cmd2(stringstream::in | stringstream::out);
-  cmd2 << "cd " << TOP_LVL_DIR << "/jm; ";
+  cmd2 << "cd jm; ";
   cmd2 << "./lencod.exe -d encoder_intra_main.cfg ";
   cmd2 << "-p InputFile=\"" << BIN_DIR << "/" << srcFileName << "\" ";
   cmd2 << "-p ReconFile=\"" << BIN_DIR << "/" << chromaFileName << "\" ";
@@ -147,10 +147,9 @@ void Encoder::encodeKeyFrame()
   cmd2 << "-p SourceWidth=" << _frameWidth << " ";
   cmd2 << "-p SourceHeight=" << _frameHeight << " ";
   cmd2 << " > jm.log;";
-  cmd2 << "cp stats.dat " << BIN_DIR;
+  cmd2 << " cp stats.dat " << BIN_DIR << "/" << "statsChroma.dat";
   system(cmd2.str().c_str());
 
-  cout << "Done encoding key frames" << endl << endl;
 
   _files->getFile("key")->openFile("rb");
 }
@@ -892,32 +891,3 @@ void Encoder::report()
   cout << endl;
 # endif // MODE_DECISION
 }
-
-map<string, string>&
-readConfig(string filename)
-{
-  string line;
-  ifstream cfile(filename);
-  static map<string, string> configMap;
-  if (cfile)
-  {
-    while( getline(cfile, line) )
-    {
-      string key, value;
-      istringstream is_line(line);
-
-      // Check if the first non-whitespace is a #
-      if( getline(is_line >> ws, key, '=')  && !key.empty() && key[0] != '#')
-        if( getline(is_line >> ws, value) )
-          configMap[key] = value;
-    }
-    cfile.close();
-    return configMap;
-  }
-  else
-  {
-    cerr << "No such file: " << filename << endl;
-    throw invalid_argument("Invalid config file");
-  }
-}
-

@@ -2,6 +2,8 @@
 #ifndef COMMON_INC_CODEC_H
 #define COMMON_INC_CODEC_H
 
+#include <map>
+
 #include "defs.h"
 
 class Bitstream;
@@ -64,6 +66,8 @@ protected:
 
   Bitstream*        _bs;
 };
+
+std::map<std::string, std::string>& readConfig(std::string filename);
 
 #endif // COMMON_INC_CODEC_H
 

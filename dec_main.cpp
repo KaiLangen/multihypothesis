@@ -7,13 +7,8 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
-  if (argc != 5) {
-    cerr << "Usage: ./deDVC ";
-    cerr << "[wz varBitstream file] ";
-    cerr << "[key frame file] ";
-    cerr << "[reconstructed video file] ";
-    cerr << "[original video file]" << endl;
-    cerr << endl;
+  if (argc != 2) {
+    cerr << "Usage: ./deDVC [config file]" << endl;
     return 1;
   }
   else {
@@ -21,7 +16,8 @@ int main(int argc, char** argv)
     cout << "DVC2.0 - open source distributed video coding tool" << endl;
     cout << endl;
 
-    Decoder* decoder = new Decoder(argv);
+    map<string, string> configMap = readConfig(argv[1]);
+    Decoder* decoder = new Decoder(configMap);
 
     decoder->decodeWZframe();
 

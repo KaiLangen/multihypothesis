@@ -12,10 +12,10 @@ public:
     (void)gop;
     int frameSize = width * height;
     _prevFrame        = new imgpel[frameSize];
-    _prevChroma       = new imgpel[frameSize];
     _currFrame        = new imgpel[frameSize];
-    _currChroma       = new imgpel[frameSize];
     _nextFrame        = new imgpel[frameSize];
+    _prevChroma       = new imgpel[frameSize];
+    _currChroma       = new imgpel[frameSize];
     _sideInfoFrame    = new imgpel[frameSize];
     _origFrame        = new imgpel[frameSize];
 

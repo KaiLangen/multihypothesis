@@ -2,8 +2,6 @@
 #ifndef ENCODER_INC_ENCODER_H
 #define ENCODER_INC_ENCODER_H
 
-#include <map>
-
 #include "defs.h"
 #include "codec.h"
 
@@ -75,9 +73,6 @@ private:
   int               _modeCounter[4];
   unsigned char*    _crcPtr;
 };
-
-std::map<std::string, std::string>&
-readConfig(std::string filename);
 
 #endif // ENCODER_INC_ENCODER_H
 

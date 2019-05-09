@@ -1,6 +1,7 @@
 
 #include <iostream>
 
+#include "codec.h"
 #include "encoder.h"
 
 using namespace std;

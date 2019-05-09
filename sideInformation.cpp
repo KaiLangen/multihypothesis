@@ -1,13 +1,39 @@
 #include <string.h>
 #include <climits>
+#include <iostream>
 #include <cstdlib>
 #include <opencv2/opencv.hpp>
 
 #include "codec.h"
+#include "decoder.h"
 #include "sideInformation.h"
 
 using namespace cv;
 class Codec;
+
+
+void SideInformation::lowpassFilter(imgpel* src, imgpel* dst, int boxSize)
+{
+  const int left = boxSize/2;
+  const int right = boxSize - (left + 1);
+
+  for (int y = 0; y < _height; y++)
+    for (int x = 0; x < _width; x++) {
+      int sum   = 0;
+      int total = 0;
+  
+      // Sum up pixels within the box
+      for (int j = y-left; j <= y+right; j++)
+        for (int i = x-left; i <= x+right; i++)
+          if (i >= 0 && i < _width &&
+              j >= 0 && j < _height) {
+            sum += src[i+j*_width];
+            total++;
+          }
+ 
+      dst[x+y*_width] = (imgpel)(sum/total);
+    }
+}
 
 SideInformation::SideInformation(Codec* codec, CorrModel* model)
 {
@@ -16,11 +42,13 @@ SideInformation::SideInformation(Codec* codec, CorrModel* model)
   _width     = _codec->getFrameWidth();
   _height    = _codec->getFrameHeight();
   _frameSize = _width * _height;
-#ifdef OBMC
+#if OBMC
   _blockSize = 8;
 #else
-  _blockSize = 16;
+  _blockSize = static_cast<Decoder*>(_codec)->_searchBlock;
 #endif
+  _p         = static_cast<Decoder*>(_codec)->_searchParam;
+  _MEMode    = static_cast<Decoder*>(_codec)->_MEMode;
   _nmv       = _width * _height / (_blockSize * _blockSize);
   _mvs       = new mvinfo[_nmv];
 }
@@ -29,124 +57,217 @@ void
 SideInformation::createSideInfo(imgpel* prevChroma, imgpel* currChroma,
                                 imgpel* imgPrevKey, imgpel* imgCurrFrame)
 {
-//  memcpy(imgCurrFrame, imgPrevKey, width * height);
-  /* read all the key frames */
-  imgpel* refUChroma = new imgpel[_frameSize];
-  imgpel* refVChroma = new imgpel[_frameSize];
-  imgpel* currUChroma = new imgpel[_frameSize];
-  imgpel* currVChroma = new imgpel[_frameSize];
+  if (_MEMode == 1)
+    ME(prevChroma, currChroma, prevChroma, currChroma);
+  else {
+    /* upsample the Chroma into new buffer */
+    imgpel* refUChroma = new imgpel[_frameSize];
+    imgpel* refVChroma = new imgpel[_frameSize];
+    imgpel* currUChroma = new imgpel[_frameSize];
+    imgpel* currVChroma = new imgpel[_frameSize];
+    imgpel* rUPadded  = new imgpel[(_width+80)*(_height+80)];
+    imgpel* rVPadded  = new imgpel[(_width+80)*(_height+80)];
+    imgpel* cUPadded  = new imgpel[(_width+80)*(_height+80)];
+    imgpel* cVPadded  = new imgpel[(_width+80)*(_height+80)];
 
-  /* upsample the Chroma into new buffer */
-  Mat mchromaU_in(_height>>1, _width>>1, CV_8UC1, currChroma);
-  Mat mchromaU_out(_height, _width, CV_8UC1, currUChroma);
-  resize(mchromaU_in, mchromaU_out, mchromaU_out.size(), 0, 0, INTER_CUBIC); 
-  Mat mchromaV_in(_height>>1, _width>>1, CV_8UC1, currChroma + ((_frameSize)>>2));
-  Mat mchromaV_out(_height, _width, CV_8UC1, currVChroma);
-  resize(mchromaV_in, mchromaV_out, mchromaV_out.size(), 0, 0, INTER_CUBIC); 
+    int ww = _width>>1;
+    int hh = _height>>1;
+    bilinear(prevChroma, refUChroma, ww, hh, ww, hh);
+    bilinear(prevChroma+(_frameSize>>2), refVChroma, ww, hh, ww, hh);
 
-  Mat mrefU_in(_height>>1, _width>>1, CV_8UC1, prevChroma);
-  Mat mrefU_out(_height, _width, CV_8UC1, refUChroma);
-  resize(mrefU_in, mrefU_out, mrefU_out.size(), 0, 0, INTER_CUBIC); 
-  Mat mrefV_in(_height>>1, _width>>1, CV_8UC1, prevChroma + ((_frameSize)>>2));
-  Mat mrefV_out(_height, _width, CV_8UC1, refVChroma);
-  resize(mrefV_in, mrefV_out, mrefV_out.size(), 0, 0, INTER_CUBIC); 
+    bilinear(currChroma, currUChroma, ww, hh, ww, hh);
+    bilinear(currChroma+(_frameSize>>2), currVChroma, ww, hh, ww, hh);
+    pad(currUChroma, cUPadded, 40);
+    pad(currVChroma, cVPadded, 40);
+    pad(refUChroma, rUPadded, 40);
+    pad(refVChroma, rVPadded, 40);
 
-  ME(refUChroma, currUChroma, refVChroma, currVChroma, _mvs);
+    ME(refUChroma, currUChroma, refVChroma, currVChroma);
+    //copy mv
+    for (int iter = 0; iter < 7; iter++) 
+      spatialSmooth(rUPadded, rVPadded, cUPadded, cVPadded, _mvs, _blockSize, 40); 
+
+/*    for (int y = 0; y < _height / _blockSize; y++) {
+      for (int x = 0; x < _width / _blockSize; x++) {
+        int idx = x + y*(_width / _blockSize);
+        std::cout << _mvs[idx].iMvx <<  " " << _mvs[idx].iMvy << "\t";
+      }
+      std::cout << endl;
+    }*/
+  }
 
   MC(imgPrevKey, imgCurrFrame);
 }
+//#endif
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int calcSAD(imgpel* blk1, imgpel* blk2, int width, int blocksize)
+/*
+* Spatial Smoothing
+*/
+void SideInformation::spatialSmooth(imgpel* rU, imgpel* rV, imgpel* cU, imgpel*cV,
+    mvinfo* varCandidate, const int iBlockSize, const int iPadSize)
 {
-  int sad=0;
-  for(int y=0;y<blocksize;y++)
-    for(int x=0;x<blocksize;x++)
-    {
-      imgpel pel1=*(blk1+x+y*width);
-      imgpel pel2=*(blk2+x+y*width);
-      sad+=abs(pel1-pel2);
-    }
-  return sad;
-}
+  int iIndex[9];
+  double dWeight[9];
+  int iSAD[9];
+  double dMinWeight;
+  int iBestMVx=0,iBestMVy=0;
+  int iPx[2],iPy[2];
+  int iBestIdx=0;
 
-void
-SideInformation::ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
-                    mvinfo& mv, int p, int center)
-{
-    // search start location
-    int cx, cy, x, y, loc;
-    unsigned int cost;
-    unsigned int mincost = UINT_MAX;
-    cy = center / _width;
-    cx = center % _width;
-    for(int i = -p; i < p; ++i)
-    {
-        for(int j = -p; j < p; ++j)
-        {
-            y = cy + i;
-            x = cx + j;
+  mvinfo *varRefine = new mvinfo[_width*_height/(iBlockSize*iBlockSize)];
+  imgpel* rUBuffer  = new imgpel[(_width+2*iPadSize)*(_height+2*iPadSize)*4];
+  imgpel* rVBuffer  = new imgpel[(_width+2*iPadSize)*(_height+2*iPadSize)*4];
+  imgpel* cUBuffer  = new imgpel[(_width+2*iPadSize)*(_height+2*iPadSize)*4];
+  imgpel* cVBuffer  = new imgpel[(_width+2*iPadSize)*(_height+2*iPadSize)*4];
 
-            // check if the pt coordinates fall outside of the image
-            if(x < 0 || x >= _width - _blockSize ||
-               y < 0 || y >= _height - _blockSize ||
-               (i == 1 && j == 1))
-            {
-                continue;
-            }
-            cost = calcSAD(&trgU[center],
-                           &refU[y*_width + x],
-                           _width,
-                           _blockSize);
-            cost += calcSAD(&trgV[center],
-                            &refV[y*_width + x],
-                            _width,
-                            _blockSize);
-            if (cost < mincost) {
-              loc = y * _width + x;
-              mincost = cost;
-            }
+  bilinear(rU,rUBuffer, _width+2*iPadSize, _height+2*iPadSize,
+                        _width+2*iPadSize, _height+2*iPadSize);
+  bilinear(rV,rVBuffer, _width+2*iPadSize, _height+2*iPadSize,
+                        _width+2*iPadSize, _height+2*iPadSize);
+  bilinear(cU,cUBuffer, _width+2*iPadSize, _height+2*iPadSize,
+                        _width+2*iPadSize, _height+2*iPadSize);
+  bilinear(cV,cVBuffer, _width+2*iPadSize, _height+2*iPadSize,
+                        _width+2*iPadSize, _height+2*iPadSize);
+
+  for (int j = 0; j < _height/iBlockSize; j++)
+    for (int i = 0; i < _width/iBlockSize; i++) {
+      for (int k = 0; k < 9; k++)
+        iIndex[k] = -1;
+
+      if(j>0)                           iIndex[0]=i+(j-1)*(_width/iBlockSize);
+      if(i>0)                           iIndex[1]=i-1+j*(_width/iBlockSize);
+      if(i<_width/iBlockSize-1)         iIndex[2]=i+1+j*(_width/iBlockSize);
+      if(j<_height/iBlockSize-1)        iIndex[3]=i+(j+1)*(_width/iBlockSize);
+      if(i>0 && j>0)                    iIndex[5]=(i-1)+(j-1)*(_width/iBlockSize);
+      if(i>0 && j<_height/iBlockSize-1) iIndex[6]=(i-1)+(j+1)*(_width/iBlockSize);
+      if(i<_width/iBlockSize-1 && j>0)  iIndex[7]=(i+1)+(j-1)*(_width/iBlockSize);
+      if(i<_width/iBlockSize-1 && j<_height/iBlockSize-1) iIndex[8]=(i+1)+(j+1)*(_width/iBlockSize);
+
+      iIndex[4]=i+j*(_width/iBlockSize);
+
+      varRefine[iIndex[4]].iMvx = varCandidate[iIndex[4]].iMvx;
+      varRefine[iIndex[4]].iMvy = varCandidate[iIndex[4]].iMvy;
+      varRefine[iIndex[4]].iCx  = varCandidate[iIndex[4]].iCx;
+      varRefine[iIndex[4]].iCy  = varCandidate[iIndex[4]].iCy;
+
+      for (int k = 0; k < 9; k++) {
+        if (iIndex[k] != -1) {
+          iPx[0]=2*(varCandidate[iIndex[4]].iCx+iPadSize)+varCandidate[iIndex[k]].iMvx;
+          iPy[0]=2*(varCandidate[iIndex[4]].iCy+iPadSize)+varCandidate[iIndex[k]].iMvy;
+          iPx[1]=2*(varCandidate[iIndex[4]].iCx+iPadSize)-varCandidate[iIndex[k]].iMvx;
+          iPy[1]=2*(varCandidate[iIndex[4]].iCy+iPadSize)-varCandidate[iIndex[k]].iMvy;
+
+          iSAD[k] = 0;
+          iSAD[k] = calcSAD(rUBuffer+iPx[0]+iPy[0]*2*(2*iPadSize+_width),
+                            cUBuffer+iPx[1]+iPy[1]*2*(2*iPadSize+_width),
+                            2*(_width+2*iPadSize), 2*(_width+2*iPadSize), 2, 2, iBlockSize);
+          iSAD[k] += calcSAD(rVBuffer+iPx[0]+iPy[0]*2*(2*iPadSize+_width),
+                            cVBuffer+iPx[1]+iPy[1]*2*(2*iPadSize+_width),
+                            2*(_width+2*iPadSize), 2*(_width+2*iPadSize), 2, 2, iBlockSize);
         }
-    }
-
-    // set the center and location
-    x = loc % _width;
-    y = loc / _width;
-    mv.iCx = cx;
-    mv.iCy = cy;
-    // MV is new location - original location
-    mv.iMvx = x - cx;
-    mv.iMvy = y - cy;
-    mv.SAD = mincost;
-}
-
-void
-SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
-                    imgpel* refFrameV, imgpel* currFrameV,
-                    mvinfo* mvs)
-{
-  int idx;
-  unsigned int sad;
-  mvinfo mv;
-  int cnt = 0;
-  int p = 7;
-  /* for every block, search each reference frame and find the best matching block. */
-  /* TODO: Would be more computationally efficient to have refs be the outter loop */
-  for (int y = 0; y < _height - _blockSize + 1; y += _blockSize) {
-    for (int x = 0; x < _width - _blockSize + 1; x += _blockSize) {
-      sad = UINT_MAX;
-      idx = y * _width + x;
-      ES(currFrameU, currFrameV, refFrameU, refFrameV, mv, p, idx);
-      if (mv.SAD < sad) {
-        mvs[cnt] = mv;
-        mvs[cnt].frameNo = 0;
-        sad = mv.SAD;
       }
-      cnt++;
+
+      dMinWeight = -1;
+
+      for (int il = 0; il < 9; il++) {
+        dWeight[il] = 0;
+
+        if (iIndex[il] != -1) {
+          for (int im = 0; im < 9; im++) {
+            if (il != im && iIndex[im] != -1)
+              dWeight[il] += (double)(iSAD[il]/std::max<double>(iSAD[im],0.0001))
+                               *( abs(varCandidate[iIndex[il]].iMvx-varCandidate[iIndex[im]].iMvx)
+                                 +abs(varCandidate[iIndex[il]].iMvy-varCandidate[iIndex[im]].iMvy));
+          }
+        }
+        else
+          dWeight[il]=-1;
+
+        if ((dMinWeight<0 || dWeight[il]<=dMinWeight) && dWeight[il]>=0) {
+          iBestMVx = varCandidate[iIndex[il]].iMvx;
+          iBestMVy = varCandidate[iIndex[il]].iMvy;
+          dMinWeight = dWeight[il];
+          iBestIdx = il;
+        }
+      }
+
+      varRefine[iIndex[4]].iMvx = iBestMVx;
+      varRefine[iIndex[4]].iMvy = iBestMVy;
+      varRefine[iIndex[4]].fDist = (float)iSAD[iBestIdx];
     }
+
+  for (int iIndex = 0; iIndex < _width*_height/(iBlockSize*iBlockSize); iIndex++) {
+    varCandidate[iIndex].iMvx = varRefine[iIndex].iMvx;
+    varCandidate[iIndex].iMvy = varRefine[iIndex].iMvy;
+    varCandidate[iIndex].iCx  = varRefine[iIndex].iCx;
+    varCandidate[iIndex].iCy  = varRefine[iIndex].iCy;
+    varCandidate[iIndex].fDist= varRefine[iIndex].fDist;
   }
+
+  delete [] rUBuffer;
+  delete [] rVBuffer;
+  delete [] cUBuffer;
+  delete [] cVBuffer;
+  delete [] varRefine;
 }
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+void SideInformation::pad(imgpel* src, imgpel* dst, const int iPadSize)
+{
+  int padded_width  = _width  + 2*iPadSize;
+  int padded_height = _height + 2*iPadSize;
+
+  // Loops start from iPadSize; subtract it from src index
+
+  // Upper left
+  for (int y = 0; y < iPadSize; y++)
+    for (int x = 0; x < iPadSize; x++)
+      dst[x+y*padded_width] = src[0];
+
+  // Upper
+  for (int x = iPadSize; x < iPadSize+_width; x++)
+    for (int y = 0; y < iPadSize; y++)
+      dst[x+y*padded_width] = src[x-iPadSize];
+
+  // Upper right
+  for (int y = 0; y < iPadSize; y++)
+    for (int x = iPadSize+_width; x < padded_width; x++)
+      dst[x+y*padded_width] = src[_width-1];
+
+  // Left
+  for (int y = iPadSize; y < iPadSize+_height; y++)
+    for (int x = 0; x < iPadSize; x++)
+      dst[x+y*padded_width] = src[(y-iPadSize)*_width];
+
+  // Middle
+  for (int y = iPadSize; y < iPadSize+_height; y++)
+    for (int x = iPadSize; x < iPadSize+_width; x++)
+      dst[x+y*padded_width] = src[x-iPadSize+(y-iPadSize)*_width];
+
+  // Right
+  for (int y = iPadSize; y < iPadSize+_height; y++)
+    for (int x = iPadSize+_width; x < padded_width; x++)
+      dst[x+y*padded_width] = src[(y-iPadSize+1)*_width-1];
+
+  // Bottom left
+  for (int y = iPadSize+_height; y < padded_height; y++)
+    for (int x = 0; x < iPadSize; x++)
+      dst[x+y*padded_width] = src[(_height-1)*_width];
+
+  // Bottom
+  for (int y = iPadSize+_height; y < padded_height; y++)
+    for (int x = iPadSize; x < iPadSize+_width; x++)
+      dst[x+y*padded_width] = src[(x-iPadSize)+(_height-1)*_width];
+
+  // Bottom right
+  for (int y = iPadSize+_height; y < padded_height; y++)
+    for (int x = iPadSize+_width; x < padded_width; x++)
+      dst[x+y*padded_width] = src[_height*_width-1];
+}
+
 
 #if RESIDUAL_CODING
 // -----------------------------------------------------------------------------
@@ -277,14 +398,46 @@ SideInformation::MC(imgpel* imgPrev, imgpel* imgDst)
     // get the frame that the motion vector references, then increment it
     cX   = _mvs[i].iCx;
     cY   = _mvs[i].iCy;
-    mvX  = cX + _mvs[i].iMvx;
-    mvY  = cY + _mvs[i].iMvy;
+    mvX  = cX + (_mvs[i].iMvx);
+    mvY  = cY + (_mvs[i].iMvy);
     
     for (int j = 0; j < _blockSize; j++) {
-      memcpy(imgDst + cX + (cY + j) * _width,
-             imgPrev + mvX + (mvY + j) * _width, 
+      memcpy(imgDst + cX + (cY + j) * (_width),
+             imgPrev + mvX + (mvY + j) * (_width), 
              _blockSize);
     }
   }
 }
 #endif 
+
+void bilinear(imgpel *source, imgpel *buffer, int buffer_w, int buffer_h,
+              int picwidth, int picheight){
+    for(int j=0;j<buffer_h;j++)
+    for(int i=0;i<buffer_w;i++)
+    {
+      int buffer_r=2*buffer_w;
+      int a,b,c,d;
+
+      int x=i;
+      int y=j;
+      if(x>picwidth-1)x=picwidth-1;
+      if(x<0)x=0;
+      if(y>picheight-1)y=picheight-1;
+      if(y<0)y=0;
+      a=source[(x)+(y)*picwidth];
+
+      if((x+1)<picwidth) b=source[(x+1)+(y)*picwidth];
+      else b=a;
+
+      if((y+1)<picheight) c=source[(x)+(y+1)*picwidth];
+      else c=a;
+
+      if((x+1)<picwidth && (y+1)<picheight) d=source[(x+1)+(y+1)*picwidth];
+      else d=a;
+
+      buffer[2*i+(2*j)*buffer_r]=a;
+      buffer[(2*i+1)+(2*j)*buffer_r]=(a+b)/2;
+      buffer[2*i+(2*j+1)*buffer_r]=(a+c)/2;
+      buffer[(2*i+1)+(2*j+1)*buffer_r]=(a+b+c+d)/4;
+    }
+}
