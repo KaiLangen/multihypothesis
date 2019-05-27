@@ -16,9 +16,7 @@ using namespace std;
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-CavlcEnc::CavlcEnc(Codec* codec, int blockSize) : Cavlc(codec, blockSize)
-{
-}
+CavlcEnc::CavlcEnc(Codec* codec, int blockSize) : Cavlc(codec, blockSize) {}
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -28,18 +26,14 @@ int CavlcEnc::encode(int* frame, int* skipMask)
   int height   = _codec->getFrameHeight();
   int bitCount = 0;
 
-  _patternFile = FileManager::getManager()->addFile("pattern_cavlc", "pattern_cavlc.dat");
-  _patternFile->openFile("w");
-  _patternFh = _patternFile->getFileHandle();
-
   for (int j = 0; j < height/_blockSize; j++)
     for (int i = 0; i < width/_blockSize; i++) {
 # if SKIP_MODE
       if (skipMask[i+j*(width/_blockSize)] == 0) {
 # endif // SKIP_MODE
-        setupMacroBlock(frame, i, j);
+        setupMacroBlock(frame, i, j, width);
 
-        bitCount += encodeMacroBlock(i, j);
+        bitCount += encodeMacroBlock(i, j, width, _codec->getBitstream());
 # if SKIP_MODE
       }
       else
@@ -47,16 +41,30 @@ int CavlcEnc::encode(int* frame, int* skipMask)
 # endif // SKIP_MODE
     }
 
-  _patternFile->closeFile();
+  return bitCount;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+int CavlcEnc::encode(int* frame, Bitstream* bs)
+{
+  int width    = _codec->getFrameWidth()>>1;
+  int height   = _codec->getFrameHeight()>>1;
+  int bitCount = 0;
+
+  for (int j = 0; j < height/_blockSize; j++)
+    for (int i = 0; i < width/_blockSize; i++) {
+        setupMacroBlock(frame, i, j, width);
+        bitCount += encodeMacroBlock(i, j, width, bs);
+    }
 
   return bitCount;
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-void CavlcEnc::setupMacroBlock(int* frame, int mbX, int mbY)
+void CavlcEnc::setupMacroBlock(int* frame, int mbX, int mbY, int width)
 {
-  int   width  = _codec->getFrameWidth();
   int** buffer = AllocArray2D<int>(4, 4);
 
   for (int j = 0; j < 4; j++) {
@@ -73,10 +81,6 @@ void CavlcEnc::setupMacroBlock(int* frame, int mbX, int mbY)
 
       buffer[j][i] = (sign == 1) ? -value : value;
 
-# if !RESIDUAL_CODING
-      if (i == 0 && j == 0)
-        buffer[j][i] = frame[index];
-# endif // !RESIDUAL_CODING
     }
   }
 
@@ -103,9 +107,8 @@ void CavlcEnc::setupMacroBlock(int* frame, int mbX, int mbY)
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcEnc::encodeMacroBlock(int mbX, int mbY)
+int CavlcEnc::encodeMacroBlock(int mbX, int mbY, int width, Bitstream* bs)
 {
-  int         iWidth = _codec->getFrameWidth();
   int*        pLevel = 0;
   int         max_coeff_num;    // Number of bands coded by CAVLC
   int         x, y;
@@ -121,13 +124,17 @@ int CavlcEnc::encodeMacroBlock(int mbX, int mbY)
   vector<int> runs;             // runs
   vector<int> zeroleft;         // zeroleft
 
+  if (bs == _codec->getBitstream()) {
 # if MODE_DECISION
-  max_coeff_num = 16 - _codec->getNumChnCodeBands();
+    max_coeff_num = 16 - _codec->getNumChnCodeBands();
 # else // if !MODE_DECISION
-  max_coeff_num = 16;
+    max_coeff_num = 16;
 # endif // MODE_DECISION
+  } else {
+    max_coeff_num = 16;
+  }
 
-  pLevel = _mbs[mbX + mbY*(iWidth/_blockSize)].coef_lac[0][0];
+  pLevel = _mbs[mbX + mbY*(width/_blockSize)].coef_lac[0][0];
 
   for (int i = max_coeff_num-1; i >= 0; i--) {
     if (pLevel[i] != 0) {
@@ -191,13 +198,13 @@ int CavlcEnc::encodeMacroBlock(int mbX, int mbY)
   // encode totalCoef and trailingOnes
   SyntaxElement* tot = new SyntaxElement(Coef, trailone, vlc, 0);
 
-  totalbits += encodeNumTrail(tot);
+  totalbits += encodeNumTrail(tot, bs);
 
   delete tot;
 
   // trailingOnes sign bit
   if (trailone != 0)
-    totalbits += encodeSignTrail(sign);
+    totalbits += encodeSignTrail(sign, bs);
 
   // encode level
   // here assume using VLC0 initially
@@ -225,9 +232,9 @@ int CavlcEnc::encodeMacroBlock(int mbX, int mbY)
 
   for (int index = 0; index < (Coef-trailone); index++) {
     if (vlcnum == 0)
-      totalbits += encodeLevelsVlc0((lev+index));
+      totalbits += encodeLevelsVlc0((lev+index), bs);
     else
-      totalbits += encodeLevelsVlcN((lev+index),vlcnum);
+      totalbits += encodeLevelsVlcN((lev+index),vlcnum, bs);
 
     if (vlcnum == 0)
       vlcnum = 1;
@@ -245,7 +252,7 @@ int CavlcEnc::encodeMacroBlock(int mbX, int mbY)
   if (Coef != 0 && Coef != max_coeff_num) {
     SyntaxElement* totzeros = new SyntaxElement(totalzeros, Coef, 0, 0);
 
-    totalbits += encodeTotalZeros(totzeros);
+    totalbits += encodeTotalZeros(totzeros, bs);
 
     delete totzeros;
   }
@@ -259,7 +266,7 @@ int CavlcEnc::encodeMacroBlock(int mbX, int mbY)
 
     run[index].set(runs[index], Min(zeroleft[index]-1, 6), 0, 0);
 
-    totalbits += encodeRuns(run+index);
+    totalbits += encodeRuns(run+index, bs);
   }
 
   delete [] run;
@@ -269,7 +276,7 @@ int CavlcEnc::encodeMacroBlock(int mbX, int mbY)
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcEnc::symbol2vlc(SyntaxElement* sym)
+int CavlcEnc::symbol2vlc(SyntaxElement* sym, Bitstream* bs)
 {
   int info_len = sym->getLength();
 
@@ -279,22 +286,14 @@ int CavlcEnc::symbol2vlc(SyntaxElement* sym)
   while (--info_len >= 0)
     str << (char)((0x01 & (sym->getInfo() >> info_len))+'0');
 
-  _codec->getBitstream()->write(sym->getInfo(), sym->getLength());
-
-# if TESTPATTERN
-  for (int idx = 1; idx <= 8; idx++) {
-    int value = ((sym->getInfo()) >> (32-idx*4)) & 0xf;
-    fprintf(_patternFh, "%x", value);
-  }
-  fprintf(_patternFh, "\n");
-# endif
+  bs->write(sym->getInfo(), sym->getLength());
 
   return info_len;
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcEnc::encodeNumTrail(SyntaxElement* se)
+int CavlcEnc::encodeNumTrail(SyntaxElement* se, Bitstream *bs)
 {
   int numCoeff = se->getValue1();
   int t1s      = se->getValue2();
@@ -317,19 +316,19 @@ int CavlcEnc::encodeNumTrail(SyntaxElement* se)
       se->setInfo(3);
   }
 
-  symbol2vlc(se);
+  symbol2vlc(se, bs);
 
   return se->getLength();
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcEnc::encodeSignTrail(vector<int>& sign)
+int CavlcEnc::encodeSignTrail(vector<int>& sign, Bitstream* bs)
 {
   for (unsigned i = 0; i < sign.size(); i++) {
     SyntaxElement* se = new SyntaxElement(0, 0, 1, sign[i]);
 
-    symbol2vlc(se);
+    symbol2vlc(se, bs);
 
     delete se;
   }
@@ -339,7 +338,7 @@ int CavlcEnc::encodeSignTrail(vector<int>& sign)
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcEnc::encodeLevelsVlc0(SyntaxElement* se)
+int CavlcEnc::encodeLevelsVlc0(SyntaxElement* se, Bitstream* bs)
 {
   int level  = se->getValue1();
   int sign   = (level < 0 ? 1 : 0);
@@ -373,14 +372,14 @@ int CavlcEnc::encodeLevelsVlc0(SyntaxElement* se)
     se->setInfo(escapeBase | ((escapeOffset << 1) - escapeBase) | sign);
   }
 
-  symbol2vlc(se);
+  symbol2vlc(se, bs);
 
   return se->getLength();
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcEnc::encodeLevelsVlcN(SyntaxElement* se, int vlc)
+int CavlcEnc::encodeLevelsVlcN(SyntaxElement* se, int vlc, Bitstream* bs)
 {
   int level  = se->getValue1();
   int sign   = (level < 0 ? 1 : 0);
@@ -415,14 +414,14 @@ int CavlcEnc::encodeLevelsVlcN(SyntaxElement* se, int vlc)
     se->setInfo(escapeBase | ((escapeOffset << 1) - escapeBase) | sign);
   }
 
-  symbol2vlc(se);
+  symbol2vlc(se, bs);
 
   return se->getLength();
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcEnc::encodeTotalZeros(SyntaxElement* se)
+int CavlcEnc::encodeTotalZeros(SyntaxElement* se, Bitstream* bs)
 {
   int totZeros = se->getValue1();
   int numCoeff = se->getValue2();
@@ -430,14 +429,14 @@ int CavlcEnc::encodeTotalZeros(SyntaxElement* se)
   se->setLength(TotalZerosTableL[numCoeff-1][totZeros]);
   se->setInfo  (TotalZerosTableC[numCoeff-1][totZeros]);
 
-  symbol2vlc(se);
+  symbol2vlc(se, bs);
 
   return se->getLength();
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcEnc::encodeRuns(SyntaxElement *se)
+int CavlcEnc::encodeRuns(SyntaxElement *se, Bitstream* bs)
 {
   int runLength = se->getValue1();
   int zerosLeft = se->getValue2();
@@ -445,7 +444,7 @@ int CavlcEnc::encodeRuns(SyntaxElement *se)
   se->setLength(RunTableL[zerosLeft][runLength]);
   se->setInfo  (RunTableC[zerosLeft][runLength]);
 
-  symbol2vlc(se);
+  symbol2vlc(se, bs);
 
   return se->getLength();
 }

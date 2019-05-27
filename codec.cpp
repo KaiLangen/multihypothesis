@@ -9,7 +9,6 @@
 const int Codec::ResidualBlockSize = 8;
 const int Codec::SkipBlockSize = 4;
 
-# if RESIDUAL_CODING
 const int Codec::QuantMatrix[8][4][4] = {
  {{4, 3, 0, 0},
   {3, 0, 0, 0},
@@ -88,54 +87,6 @@ const int Codec::MinQStepSize[8][4][4] = {
   { 8, 10, 16, 18},
   {10, 16, 18, 18}}
 };
-
-# else // if !RESIDUAL_CODING
-
-const int Codec::QuantMatrix[8][4][4] = {
- {{4, 3, 0, 0},
-  {3, 0, 0, 0},
-  {0, 0, 0, 0},
-  {0, 0, 0, 0}},
- {{5, 3, 0, 0},
-  {3, 0, 0, 0},
-  {0, 0, 0, 0},
-  {0, 0, 0, 0}},
- {{5, 3, 2, 0},
-  {3, 2, 0, 0},
-  {2, 0, 0, 0},
-  {0, 0, 0, 0}},
- {{5, 4, 3, 2},
-  {4, 3, 2, 0},
-  {3, 2, 0, 0},
-  {2, 0, 0, 0}},
- {{5, 4, 3, 2},
-  {4, 3, 2, 2},
-  {3, 2, 2, 0},
-  {2, 2, 0, 0}},
- {{6, 4, 3, 3},
-  {4, 3, 3, 2},
-  {3, 3, 2, 0},
-  {3, 2, 0, 0}},
- {{6, 5, 4, 3},
-  {5, 4, 3, 2},
-  {4, 3, 2, 2},
-  {3, 2, 2, 0}},
- {{7, 6, 5, 4},
-  {6, 5, 4, 3},
-  {5, 4, 3, 2},
-  {4, 3, 2, 0}}
-};
-
-const int Codec::BitPlaneNum[8] = {10, 11, 17, 30, 36, 41, 50, 63};
-
-const int Codec::MaxBitPlane[4][4] = {
-  {10, 9, 9, 8},
-  { 9, 9, 8, 7},
-  { 9, 8, 7, 6},
-  { 8, 7, 6, 6}
-};
-
-# endif // RESIDUAL_CODING
 
 // Zigzag scan order
 const int Codec::ScanOrder[16][2] = {

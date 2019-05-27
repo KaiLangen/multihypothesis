@@ -30,16 +30,32 @@ Decoder::Decoder(map<string, string> configMap)
   string recFileName = wzFileName.substr(0, wzFileName.find(".bin")) + ".yuv";
   _files->addFile("wz",     configMap["WZFile"])->openFile("rb");
   _files->addFile("key",    configMap["KeyFile"])->openFile("rb");
-  _files->addFile("chroma", configMap["ChromaFile"])->openFile("rb");
   _files->addFile("origin", configMap["SrcFile"])->openFile("rb");
   _files->addFile("rec",    recFileName.c_str())->openFile("wb");
 
+  // create file handles and bitstream Objects for Chroma
+  string ubs = wzFileName.substr(0, wzFileName.find(".bin")) + ".u.bin";
+  string vbs = wzFileName.substr(0, wzFileName.find(".bin")) + ".v.bin";
+  _files->addFile("wzU",  ubs.c_str())->openFile("rb");
+  _files->addFile("wzV",  vbs.c_str())->openFile("rb");
   _bs = new Bitstream(1024, _files->getFile("wz")->getFileHandle());
+  _bsU = new Bitstream(1024, _files->getFile("wzU")->getFileHandle());
+  _bsV = new Bitstream(1024, _files->getFile("wzV")->getFileHandle());
 
   // Parse other configuration parameters
   _searchParam = atoi(configMap["searchWindowSize"].c_str());
   _searchBlock = atoi(configMap["blockSize"].c_str());
-  _MEMode      = atoi(configMap["MEMode"].c_str());
+
+  // compute quantStep
+  for (int j = 0; j < 4; j++) {
+    for (int i = 0; i < 4; i++) {
+      if (QuantMatrix[_qp][j][i] != 0) {
+        _quantStep[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_qp][j][i]);
+      }
+      else
+        _quantStep[j][i] = 1;
+    }
+  }
 
   decodeWzHeader();
 
@@ -69,13 +85,6 @@ void Decoder::initialize()
   _average          = new double[16];
   _alpha            = new double[_frameSize];
   _sigma            = new double[16];
-
-# if RESIDUAL_CODING
-  _rcList           = new int[_frameSize/64];
-
-  for (int i = 0; i < _frameSize/64; i++)
-    _rcList[i] = 0;
-# endif
 
   _skipMask         = new int[_bitPlaneLength];
 
@@ -136,81 +145,119 @@ void Decoder::decodeWZframe()
   clock_t timeStart, timeEnd;
   double cpuTime;
 
-  imgpel* currLuma     = _fb->getCurrFrame();
-  imgpel* prevLuma     = _fb->getPrevFrame();
-  imgpel* currChroma   = _fb->getCurrChroma();
-  imgpel* prevChroma   = _fb->getPrevChroma();
-  imgpel* oriCurrFrame = _fb->getorigFrame();
-  imgpel* imgSI        = _fb->getSideInfoFrame();
+//  imgpel* currLuma      = _fb->getCurrFrame();
+  imgpel* prevLuma      = _fb->getPrevFrame();
+  imgpel* currChroma    = _fb->getCurrChroma();
+  imgpel* prevChroma    = _fb->getPrevChroma();
+  imgpel* oriCurrFrame  = _fb->getorigFrame();
+//  imgpel* imgSI         = _fb->getSideInfoFrame();
 
-  int* iDCT            = _fb->getDctFrame();
-  int* iDCTQ           = _fb->getQuantDctFrame();
-  int* iDecoded        = _fb->getDecFrame();
-  int* iDecodedInvQ    = _fb->getInvQuantDecFrame();
+// Luma Buffers
+//  int* iDCT             = _fb->getDctFrame();
+//  int* iDCTQ            = _fb->getQuantDctFrame();
+//  int* iDecoded         = _fb->getDecFrame();
+//  int* iDecodedInvQ     = _fb->getInvQuantDecFrame();
+//  int* iDCTBuffer       = new int [_frameSize];
+//  int* iDCTResidual     = new int [_frameSize];
 
-#if RESIDUAL_CODING
-  int* iDCTBuffer      = new int [_frameSize];
-  int* iDCTResidual    = new int [_frameSize];
-#endif
+// Chroma Buffers
+  imgpel* prevKeyLuma   = new imgpel[_frameSize];
+  imgpel* prevKeyChroma = new imgpel[_frameSize>>1];
+  int* iDecodedU        = new int[_frameSize>>2];
+  int* iDecodedV        = new int[_frameSize>>2];
+  int* iDctU            = new int[_frameSize>>2];
+  int* iDctV            = new int[_frameSize>>2];
+  int* iQuantU          = new int[_frameSize>>2];
+  int* iQuantV          = new int[_frameSize>>2];
 
-  int x,y;
+//  int x,y;
   double totalrate=0;
-
   double dKeyCodingRate=0;
   double dKeyPSNR=0;
 
-  FILE* fReadPtr       = _files->getFile("origin")->getFileHandle();
-  FILE* fWritePtr      = _files->getFile("rec")->getFileHandle();
-  FILE* fKeyReadPtr    = _files->getFile("key")->getFileHandle();
-  FILE* fChromaReadPtr = _files->getFile("chroma")->getFileHandle();
+  FILE* fReadPtr        = _files->getFile("origin")->getFileHandle();
+  FILE* fWritePtr       = _files->getFile("rec")->getFileHandle();
+  FILE* fKeyReadPtr     = _files->getFile("key")->getFileHandle();
 
   parseKeyStat("stats.dat", dKeyCodingRate, dKeyPSNR, _keyQp);
 
   timeStart = clock();
+  int cw = _frameWidth >> 1;
+  int ch = _frameWidth >> 1;
 
   // Main loop
   // ---------------------------------------------------------------------------
   for (int keyFrameNo = 0; keyFrameNo < _numFrames/_gop; keyFrameNo++) {
     // Read previous key frame
     fseek(fKeyReadPtr, (3*(keyFrameNo)*_frameSize)>>1, SEEK_SET);
-    fread(prevLuma, _frameSize, 1, fKeyReadPtr);
-    fread(prevChroma, _frameSize>>1, 1, fKeyReadPtr);
-    fwrite(prevLuma, _frameSize, 1, fWritePtr);
-    fwrite(prevChroma, _frameSize>>1, 1, fWritePtr);
+    fread(prevKeyLuma, _frameSize, 1, fKeyReadPtr);
+    fread(prevKeyChroma, _frameSize>>1, 1, fKeyReadPtr);
+    fwrite(prevKeyLuma, _frameSize, 1, fWritePtr);
+    fwrite(prevKeyChroma, _frameSize>>1, 1, fWritePtr);
+    memcpy(prevLuma, prevKeyLuma, _frameSize);
+    memcpy(prevChroma, prevKeyChroma, _frameSize>>1);
 
     for (int idx = 1; idx < _gop; idx++) {
       // Start decoding the WZ frame
       int wzFrameNo = keyFrameNo*_gop + idx;
 
       cout << "Decoding frame " << wzFrameNo << " (Wyner-Ziv frame)" << endl;
-
-      // Read current frame from the original file
+      // Read current frame from the original file (for comparison)
       fseek(fReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
       fread(oriCurrFrame, _frameSize, 1, fReadPtr);
 
-
       // ---------------------------------------------------------------------
-      // STAGE 1 - Create side information
+      // STAGE 1 - Decode Chroma Data
       // ---------------------------------------------------------------------
-      if (_MEMode == 1) { // Oracle: predict from current Luma
-        // read Luma for prediction
-        fseek(fChromaReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
-        fread(currChroma, _frameSize, 1, fChromaReadPtr);
-        _si->createSideInfo(prevLuma, currChroma, prevLuma, imgSI);
+      int bitsU, bitsV;
+      // size of integer buffer in bytes is: (_frameSize >> 2) * 4
+      memset(iDecodedU, 0, _frameSize);
+      memset(iDecodedV, 0, _frameSize);
+      memset(iQuantU, 0, _frameSize);
+      memset(iQuantV, 0, _frameSize);
 
-        // read actual Chroma for writing to file
-        fseek(fChromaReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
-        fseek(fChromaReadPtr, _frameSize, SEEK_CUR);
-        fread(currChroma, _frameSize>>1, 1, fChromaReadPtr);
+      // read bits from bitstream
+      for (int j = 0; j < ch; j += 4)
+        for (int i = 0; i < cw; i += 4) {
+          bitsU = _cavlc->decode(iDecodedU, i, j, _bsU);
+          bitsV = _cavlc->decode(iDecodedV, i, j, _bsV);
+        }
+
+# if HARDWARE_FLOW
+      if (bitsU%32 != 0) {
+        int dummy = 32 - (bitsU%32);
+        _bsU->read(dummy);
       }
-      else if (_MEMode == 2) { // Chroma mode: predict from coincident Chroma
-        fseek(fChromaReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
-        fseek(fChromaReadPtr, _frameSize, SEEK_CUR);
-        fread(currChroma, _frameSize>>1, 1, fChromaReadPtr);
-        _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
+      if (bitsV%32 != 0) {
+        int dummy = 32 - (bitsV%32);
+        _bsV->read(dummy);
       }
-      else 
-        throw invalid_argument("Invalid MEMode value");
+# endif // HARDWARE_FLOW
+
+      // TODO Fix inverse quantization to prevent seg fault.
+      // Maybe create new invQuant function without side-information?
+      _trans->invQuantization(iDecodedU, iQuantU, cw, ch);
+      _trans->invQuantization(iDecodedV, iQuantV, cw, ch);
+      _trans->invDctTransform(iQuantU, iDctU, cw, ch);
+      _trans->invDctTransform(iQuantV, iDctV, cw, ch);
+
+      // undo residual encoding
+      for (int idx = 0; idx < _frameSize>>2; idx++) {
+        currChroma[idx] = iDctU[idx] + prevKeyChroma[idx];
+        currChroma[idx+(_frameSize>>2)] = 
+          iDctV[idx] + prevKeyChroma[idx+(_frameSize>>2)];
+      }
+      
+
+      fwrite(oriCurrFrame, _frameSize, 1, fWritePtr);
+      fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
+      continue;
+/*
+      // ---------------------------------------------------------------------
+      // STAGE 2 - Create side information
+      // ---------------------------------------------------------------------
+      // Predict from coincident Chroma
+      _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
 
       float currPSNRSI0 = calcPSNR(oriCurrFrame, imgSI, _frameSize);
       cout << "side information quality " << currPSNRSI0 << endl;
@@ -222,9 +269,8 @@ void Decoder::decodeWZframe()
       memcpy(prevLuma, imgSI, _frameSize);
       memcpy(prevChroma, currChroma, _frameSize>>1);
       continue;
-
       // ---------------------------------------------------------------------
-      // STAGE 2 -
+      // STAGE 3 - WZ Decode
       // ---------------------------------------------------------------------
       int tmp = getSyndromeData();
 
@@ -237,8 +283,7 @@ void Decoder::decodeWZframe()
       memset(iDecoded, 0, _frameSize*4);
       memset(iDecodedInvQ, 0, _frameSize*4);
 
-# if RESIDUAL_CODING
-      _si->getResidualFrame(prevLuma, imgSI, iDCTBuffer);
+      _si->getResidualFrame(prevKeyLuma, imgSI, iDCTBuffer);
 
       _trans->dctTransform(iDCTBuffer, iDCTResidual);
       _trans->quantization(iDCTResidual, iDCTQ);
@@ -261,40 +306,10 @@ void Decoder::decodeWZframe()
       _trans->invQuantization(iDecoded, iDecodedInvQ, iDCTResidual);
       _trans->invDctTransform(iDecodedInvQ, iDCTBuffer);
 
-      _si->getRecFrame(prevLuma, iDCTBuffer, currLuma);
+      _si->getRecFrame(prevKeyLuma, iDCTBuffer, currLuma);
 #     if SKIP_MODE
-      getSkippedRecFrame(prevLuma, currLuma, _skipMask);
+      getSkippedRecFrame(prevKeyLuma, currLuma, _skipMask);
 #     endif
-
-# else // if !RESIDUAL_CODING
-
-      _trans->quantization(iDCT, iDCTQ);
-
-      int iOffset = 0;
-      int iDC;
-
-      for (int i = 0; i < 16; i++) {
-        x = ScanOrder[i][0];
-        y = ScanOrder[i][1];
-
-#   if MODE_DECISION
-        if (i < _numChnCodeBands)
-          dTotalRate += decodeLDPC(iDCTQ, iDCT, iDecoded, x, y, iOffset);
-#   else
-        dTotalRate += decodeLDPC(iDCTQ, iDCT, iDecoded, x, y, iOffset);
-#   endif
-
-        iOffset += QuantMatrix[_qp][y][x];
-      }
-
-      _trans->invQuantization(iDecoded, iDecodedInvQ, iDCT);
-      _trans->invDctTransform(iDecodedInvQ, currLuma);
-
-#     if SKIP_MODE
-      getSkippedRecFrame(prevLuma, currLuma, _skipMask);
-#     endif
-
-#   endif
 
       totalrate += dTotalRate;
       cout << endl;
@@ -313,7 +328,7 @@ void Decoder::decodeWZframe()
       // copy curr buffers into prev buffer
       memcpy(prevLuma, currLuma, _frameSize);
       memcpy(prevChroma, currChroma, _frameSize>>1);
-
+*/
     }
   }
 
@@ -410,79 +425,6 @@ int Decoder::getSyndromeData()
   int* iDecoded = _fb->getDecFrame();
   int  decodedBits = 0;
 
-# if RESIDUAL_CODING
-
-#   if !HARDWARE_FLOW
-  // Decode motion vector
-  for (int i = 0; i < _frameSize/64; i++)
-    _rcList[i] = _bs->read(1);
-#   endif
-
-# endif // RESIDUAL_CODING
-
-  // ---------------------------------------------------------------------------
-  // ---------------------------------------------------------------------------
-  for (int j = 0; j < 4; j++) {
-    for (int i = 0; i < 4; i++) {
-# if RESIDUAL_CODING
-
-#   if !HARDWARE_FLOW
-      _maxValue[j][i] = _bs->read(11);
-#   endif
-
-      if (QuantMatrix[_qp][j][i] != 0) {
-#   if HARDWARE_QUANTIZATION
-        _quantStep[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_qp][j][i]);
-#   else
-        int iInterval = 1 << QuantMatrix[_qp][j][i];
-
-        _quantStep[j][i] = (int)(ceil(double(2*abs(_maxValue[j][i]))/double(iInterval-1)));
-        _quantStep[j][i] = Max(_quantStep[j][i], MinQStepSize[_qp][j][i]);
-#   endif
-      }
-      else
-        _quantStep[j][i] = 1;
-
-# else // if !RESIDUAL_CODING
-
-      if (i != 0 || j != 0) {
-        _maxValue[j][i] = _bs->read(11);
-
-#   if HARDWARE_QUANTIZATION
-        if (QuantMatrix[_qp][j][i] != 0)
-          _quantStep[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_qp][j][i]);
-        else
-          _quantStep[j][i] = 0;
-#   else
-        int iInterval = 1 << QuantMatrix[_qp][j][i];
-
-#     if AC_QSTEP
-        if (QuantMatrix[_qp][j][i] != 0) {
-          _quantStep[j][i] = (int)(ceil(double(2*abs(_maxValue[j][i]))/double(iInterval-1)));
-
-          if (_quantStep[j][i] < 0)
-            _quantStep[j][i] = 0;
-        }
-        else
-          _quantStep[j][i] = 1;
-#     else
-        if (QuantMatrix[_qp][j][i] != 0)
-          _quantStep[j][i] = ceil(double(2*abs(_maxValue[j][i]))/double(iInterval));
-        else
-          _quantStep[j][i] = 1;
-#     endif
-
-#   endif // HARDWARE_QUANTIZATION
-      }
-      else {
-        _maxValue[j][i] = DC_BITDEPTH;
-
-        _quantStep[j][i] = 1 << (_maxValue[j][i]-QuantMatrix[_qp][j][i]);
-      }
-# endif // RESIDUAL_CODING
-    }
-  }
-
   // ---------------------------------------------------------------------------
   // ---------------------------------------------------------------------------
 # if MODE_DECISION
@@ -551,7 +493,7 @@ int Decoder::getSyndromeData()
     for (int j = 0; j < _frameHeight; j += 4)
       for (int i = 0; i < _frameWidth; i += 4) {
         if (_skipMask[i/4+(j/4)*(_frameWidth/4)] == 0) //not skip
-          decodedBits += _cavlc->decode(iDecoded, i, j);
+          decodedBits += _cavlc->decode(iDecoded, i, j, _bs);
         else
           _cavlc->clearNnz(i/4+(j/4)*(_frameWidth/4));
       }
@@ -570,11 +512,7 @@ int Decoder::getSyndromeData()
   // ---------------------------------------------------------------------------
   // ---------------------------------------------------------------------------
   // Read parity and CRC bits from the bitstream
-# if RESIDUAL_CODING
   for (int i = 0; i < _rcBitPlaneNum; i++)
-# else
-  for (int i = 0; i < BitPlaneNum[_qp]; i++)
-# endif
   {
     for (int j = 0; j < _bitPlaneLength; j++)
       _dParity[j+i*_bitPlaneLength] = (double)_bs->read(1);
@@ -682,27 +620,12 @@ double Decoder::decodeLDPC(int* iQuantDCT, int* iDCT, int* iDecoded, int x, int 
 
   dParityRate = 0;
 
-# if RESIDUAL_CODING
   for (iCurrPos = _rcQuantMatrix[y][x]-1; iCurrPos >= 0; iCurrPos--)
-# else
-  for (iCurrPos = QuantMatrix[_qp][y][x]-1; iCurrPos >= 0; iCurrPos--)
-# endif
   {
-# if RESIDUAL_CODING
     if (iCurrPos == _rcQuantMatrix[y][x]-1)
       dParityRate = _model->getSoftInput(iQuantDCT, _skipMask, iCurrPos, iDecodedTmp, dLLR, x, y, 1);
     else
       dParityRate = _model->getSoftInput(iDCT, _skipMask, iCurrPos, iDecodedTmp, dLLR, x, y, 2);
-# else
-    if (x == 0 && y == 0)
-      dParityRate = _model->getSoftInput(iDCT, _skipMask, iCurrPos, iDecodedTmp, dLLR, 0, 0, 2);
-    else {
-      if (iCurrPos == QuantMatrix[_qp][y][x]-1)
-        dParityRate = _model->getSoftInput(iQuantDCT, _skipMask, iCurrPos, iDecodedTmp, dLLR, x, y, 1);
-      else
-        dParityRate = _model->getSoftInput(iDCT, _skipMask, iCurrPos, iDecodedTmp, dLLR, x, y, 2);
-    }
-# endif
     iNumCode = int(dParityRate*66);
 
     if (iNumCode <= 2)

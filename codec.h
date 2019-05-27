@@ -36,9 +36,7 @@ protected:
   const static int  QuantMatrix[8][4][4];
   const static int  BitPlaneNum[8];
   const static int  MaxBitPlane[4][4];
-# if RESIDUAL_CODING
   const static int  MinQStepSize[8][4][4];
-# endif
 
   const static int  ScanOrder[16][2];
   const static int  HuffmanCodeValue[4][3][16];
@@ -65,6 +63,8 @@ protected:
   double*           _sigma;
 
   Bitstream*        _bs;
+  Bitstream*        _bsU;
+  Bitstream*        _bsV;
 };
 
 std::map<std::string, std::string>& readConfig(std::string filename);

@@ -8,6 +8,7 @@
 
 #include "defs.h"
 #include "cavlc.h"
+#include "bitstream.h"
 
 using std::vector;
 
@@ -57,22 +58,21 @@ public:
   CavlcEnc(Codec* codec, int blockSize);
 
   int encode(int* frame, int* skipMask);
+  int encode(int* frame, Bitstream* bs);
 
 private:
-  void setupMacroBlock(int* frame, int mbX, int mbY);
-  int encodeMacroBlock(int mbX, int mbY);
+  void setupMacroBlock(int* frame, int mbX, int mbY, int width);
+  int encodeMacroBlock(int mbX, int mbY, int width, Bitstream* bs);
 
-  int symbol2vlc(SyntaxElement* sym);
+  int symbol2vlc(SyntaxElement* sym, Bitstream* bs);
 
-  int encodeNumTrail(SyntaxElement* se);
-  int encodeSignTrail(vector<int>& sign);
-  int encodeLevelsVlc0(SyntaxElement* se);
-  int encodeLevelsVlcN(SyntaxElement* se, int vlc);
-  int encodeTotalZeros(SyntaxElement* se);
-  int encodeRuns(SyntaxElement* se);
+  int encodeNumTrail(SyntaxElement* se, Bitstream* bs);
+  int encodeSignTrail(vector<int>& sign, Bitstream* bs);
+  int encodeLevelsVlc0(SyntaxElement* se, Bitstream* bs);
+  int encodeLevelsVlcN(SyntaxElement* se, int vlc, Bitstream* bs);
+  int encodeTotalZeros(SyntaxElement* se, Bitstream* bs);
+  int encodeRuns(SyntaxElement* se, Bitstream* bs);
 
-  File*     _patternFile;
-  FILE*     _patternFh;
 };
 
 #endif // ENCODER_INC_CAVLCENC_H

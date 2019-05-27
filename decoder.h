@@ -35,7 +35,6 @@ public:
 
   int  _searchParam;
   int  _searchBlock;
-  int  _MEMode;
   int* _skipMask;
 
 private:
@@ -70,11 +69,8 @@ private:
 
   int               _maxValue[4][4];
 
-# if RESIDUAL_CODING | MODE_DECISION
   int               _rcBitPlaneNum;
-  int*              _rcList;
   int               _rcQuantMatrix[4][4];
-# endif
 
   int*              _spiralSearchX;
   int*              _spiralSearchY;

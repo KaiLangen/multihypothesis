@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <cassert>
 #include <cstring>
 
 #include "cavlcDec.h"
@@ -19,12 +20,16 @@ CavlcDec::CavlcDec(Codec* codec, int blockSize) : Cavlc(codec, blockSize)
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcDec::decode(int* iDCT, int ix, int iy)
+int CavlcDec::decode(int* iDCT, int ix, int iy, Bitstream* bs)
 {
-  int width = _codec->getFrameWidth();
+  int width, numCoeff,t1s,totalZeros,zerosLeft;
+  if (bs == _codec->getBitstream())
+    width = _codec->getFrameWidth();
+  else
+    width = _codec->getFrameWidth() >> 1;
+
   int qp = _codec->getQp();
   int iBitCount=0;
-  int numCoeff,t1s,totalZeros,zerosLeft;
   int nc,vlc;
 
   int index = (ix/4)+(iy/4)*(width/4);
@@ -49,29 +54,27 @@ int CavlcDec::decode(int* iDCT, int ix, int iy)
   else
     vlc = 3;
 
-  iBitCount += decodeNumCoeffTrailingOnes(numCoeff, t1s, vlc);
+  iBitCount += decodeNumCoeffTrailingOnes(numCoeff, t1s, vlc, bs);
 
   _mbs[index].nnz[0][0] = numCoeff;
 
   if (numCoeff == 0)
     return iBitCount;
 
-  iBitCount += decodeLevel(numCoeff, t1s, _mbs[index].level, _mbs[index].Ones);
-
-  _mbs[index].nnz[0][0] = numCoeff;
+  iBitCount += decodeLevel(numCoeff, t1s, _mbs[index].level, bs);
 
   if (numCoeff == 16) {
     totalZeros = 0;
     zerosLeft  = 0;
   }
   else {
-    iBitCount += decodeTotalZero(totalZeros, numCoeff);
+    iBitCount += decodeTotalZero(totalZeros, numCoeff, bs);
     zerosLeft  = totalZeros;
   }
 
   for (int i = 0; i < (numCoeff-1); i++) {
     if (zerosLeft > 0)
-      iBitCount += decodeRun(_mbs[index].iRun[i], zerosLeft);
+      iBitCount += decodeRun(_mbs[index].iRun[i], zerosLeft, bs);
     else
       _mbs[index].iRun[i] = 0;
 
@@ -88,30 +91,18 @@ int CavlcDec::decode(int* iDCT, int ix, int iy)
 #endif
 
   for (int i = numCoeff-1; i >= 0; i--) {
+#if !MODE_DECISION
     iCoeffNum += _mbs[index].iRun[i] + 1;
+#endif
+    assert(iCoeffNum < 16);
 
     int x = ScanOrder[iCoeffNum][0];
     int y = ScanOrder[iCoeffNum][1];
 
-  //  iDCT[ix+x + (iy+y)*width] = _mbs[index].level[i];
-    if (x == 0 && y == 0) {
-#if RESIDUAL_CODING
-      iSign = (_mbs[index].level[i] >= 0) ? 0 : 1;
-      iDCT[ix+x + (iy+y)*width] = abs(_mbs[index].level[i]);
-
-      if (iSign == 1)
-        iDCT[ix+x + (iy+y)*width] |= (0x1 << (_codec->getQuantMatrix(qp, x, y)-1));
-#else
-      iDCT[ix+x + (iy+y)*width] = _mbs[index].level[i];
-#endif
-    }
-    else {
-      iSign = (_mbs[index].level[i] >= 0) ? 0 : 1 ;
-      iDCT[ix+x + (iy+y)*width] = abs(_mbs[index].level[i]);
-
-      if (iSign == 1)
-        iDCT[ix+x + (iy+y)*width] |= (0x1 << (_codec->getQuantMatrix(qp, x, y)-1));
-    }
+    iSign = (_mbs[index].level[i] >= 0) ? 0 : 1;
+    iDCT[ix+x + (iy+y)*width] = abs(_mbs[index].level[i]);
+    if (iSign == 1)
+      iDCT[ix+x + (iy+y)*width] |= (0x1 << (_codec->getQuantMatrix(qp, x, y)-1));
   }
 
   return iBitCount;
@@ -119,7 +110,8 @@ int CavlcDec::decode(int* iDCT, int ix, int iy)
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcDec::decodeNumCoeffTrailingOnes(int& numCoeff, int& t1s, int vlc)
+int CavlcDec::decodeNumCoeffTrailingOnes(int& numCoeff, int& t1s,
+                                         int vlc, Bitstream* bs)
 {
   int value;
 
@@ -130,7 +122,7 @@ int CavlcDec::decodeNumCoeffTrailingOnes(int& numCoeff, int& t1s, int vlc)
 
     for (length = 1; length < 17; length++) {
       value <<= 1;
-      value |= _codec->getBitstream()->read(1);
+      value |= bs->read(1);
 
       for (int j = 0; j < 4; j++)
         for (int i = 0; i < 17; i++) {
@@ -148,7 +140,7 @@ int CavlcDec::decodeNumCoeffTrailingOnes(int& numCoeff, int& t1s, int vlc)
   }
   else {
     length = 6;
-    value = _codec->getBitstream()->read(6);
+    value = bs->read(6);
 
     if (value == 3)
       numCoeff = t1s = 0;
@@ -163,9 +155,9 @@ int CavlcDec::decodeNumCoeffTrailingOnes(int& numCoeff, int& t1s, int vlc)
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcDec::decodeLevel(int iNumCoef, int iTrailingOnes, int* iLevel, int* iOnes)
+int CavlcDec::decodeLevel(int iNumCoef, int iTrailingOnes,
+                          int* iLevel, Bitstream* bs)
 {
-  int iValue = 0;
   int iLevelPrefix,iSuffixLength,iLevelSuffixSize;
   unsigned int iLevelSuffix;
   int iLevelCode;
@@ -175,7 +167,7 @@ int CavlcDec::decodeLevel(int iNumCoef, int iTrailingOnes, int* iLevel, int* iOn
 
   //decode trailingOnes
   for (int i = 0; i < iTrailingOnes; i++) {
-    int b = _codec->getBitstream()->read(1);
+    int b = bs->read(1);
     length++;
 
     if (b == 0)
@@ -199,7 +191,7 @@ int CavlcDec::decodeLevel(int iNumCoef, int iTrailingOnes, int* iLevel, int* iOn
     iLevelPrefix = -1;
 
     for (int b = 0; !b; iLevelPrefix++) {
-      b = _codec->getBitstream()->read(1);
+      b = bs->read(1);
       length++;
     }
 
@@ -211,7 +203,7 @@ int CavlcDec::decodeLevel(int iNumCoef, int iTrailingOnes, int* iLevel, int* iOn
       iLevelSuffixSize = iSuffixLength;
 
     if (iLevelSuffixSize > 0) {
-      iLevelSuffix = (unsigned int)_codec->getBitstream()->read(iLevelSuffixSize);
+      iLevelSuffix = (unsigned int)bs->read(iLevelSuffixSize);
       length += iLevelSuffixSize;
     }
     else
@@ -244,7 +236,7 @@ int CavlcDec::decodeLevel(int iNumCoef, int iTrailingOnes, int* iLevel, int* iOn
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcDec::decodeTotalZero(int& iTotalZeros, int iNumCoef)
+int CavlcDec::decodeTotalZero(int& iTotalZeros, int iNumCoef, Bitstream* bs)
 {
   int iValue = 0;
 
@@ -253,10 +245,11 @@ int CavlcDec::decodeTotalZero(int& iTotalZeros, int iNumCoef)
   for (length = 1; length < 10; length++) {
     int success = 0;
     iValue <<= 1;
-    iValue |= _codec->getBitstream()->read(1);
+    iValue |= bs->read(1);
 
     for (int i = 0; i < 16; i++) {
-      if (TotalZerosTableC[iNumCoef-1][i] == iValue && TotalZerosTableL[iNumCoef-1][i] == length) {
+      if (TotalZerosTableC[iNumCoef-1][i] == iValue &&
+          TotalZerosTableL[iNumCoef-1][i] == length) {
         success = 1;
         iTotalZeros = i;
         break;
@@ -272,7 +265,7 @@ int CavlcDec::decodeTotalZero(int& iTotalZeros, int iNumCoef)
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int CavlcDec::decodeRun(int& iRun, int iZerosLeft)
+int CavlcDec::decodeRun(int& iRun, int iZerosLeft, Bitstream* bs)
 {
   int iValue = 0;
 
@@ -281,10 +274,11 @@ int CavlcDec::decodeRun(int& iRun, int iZerosLeft)
   for (length = 1; length < 10; length++) {
     int success = 0;
     iValue <<= 1;
-    iValue |= _codec->getBitstream()->read(1);
+    iValue |= bs->read(1);
 
     for (int i = 0; i < 15; i++) {
-      if (RunTableC[iZerosLeft-1][i] == iValue && RunTableL[iZerosLeft-1][i] == length) {
+      if (RunTableC[iZerosLeft-1][i] == iValue &&
+          RunTableL[iZerosLeft-1][i] == length) {
         success = 1;
         iRun = i;
         break;

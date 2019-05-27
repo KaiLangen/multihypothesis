@@ -14,10 +14,8 @@ public:
 
   void createSideInfo(imgpel* prevChroma, imgpel* currChroma,
                       imgpel* imgPrevKey, imgpel* imgCurrFrame);
-# if RESIDUAL_CODING
   void getResidualFrame(imgpel* bRefFrame, imgpel* currFrame, int* residue);
   void getRecFrame(imgpel *imgBReference, int *iResidue, imgpel *imgRec);
-# endif
 
 private:
   void lowpassFilter(imgpel* src, imgpel* dst, const int boxSize);
@@ -48,7 +46,6 @@ private:
   int _frameSize;
   int _blockSize;
   int _p;
-  int _MEMode;
   int _nmv;
 
 # if OBMC

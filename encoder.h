@@ -28,9 +28,6 @@ private:
 
   void encodeWzHeader();
 
-  void computeResidue(int* residue);
-  int  computeSad(imgpel* blk1, imgpel* blk2, int width1, int width2, int step1, int step2, int blockSize);
-
   void updateMaxValue(int* block);
 
   void computeQuantStep();
@@ -60,10 +57,8 @@ private:
   CavlcEnc*         _cavlc;
   LdpcaEnc*         _ldpca;
 
-# if RESIDUAL_CODING | MODE_DECISION
   int               _rcBitPlaneNum;
   int               _rcQuantMatrix[4][4];
-# endif
 
   int               _maxValue[4][4];
   int*              _skipMask;

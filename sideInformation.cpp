@@ -46,7 +46,6 @@ SideInformation::SideInformation(Codec* codec, CorrModel* model)
   _blockSize = static_cast<Decoder*>(_codec)->_searchBlock;
 #endif
   _p         = static_cast<Decoder*>(_codec)->_searchParam;
-  _MEMode    = static_cast<Decoder*>(_codec)->_MEMode;
   _nmv       = _width * _height / (_blockSize * _blockSize);
   _mvs       = new mvinfo[_nmv];
 }
@@ -55,37 +54,33 @@ void
 SideInformation::createSideInfo(imgpel* prevChroma, imgpel* currChroma,
                                 imgpel* imgPrevKey, imgpel* imgCurrFrame)
 {
-  if (_MEMode == 1)
-    ME(prevChroma, currChroma, prevChroma, currChroma);
-  else {
-    /* upsample the Chroma into new buffer */
-    imgpel* refUChroma = new imgpel[_frameSize];
-    imgpel* refVChroma = new imgpel[_frameSize];
-    imgpel* currUChroma = new imgpel[_frameSize];
-    imgpel* currVChroma = new imgpel[_frameSize];
-    imgpel* rUPadded  = new imgpel[(_width+80)*(_height+80)];
-    imgpel* rVPadded  = new imgpel[(_width+80)*(_height+80)];
-    imgpel* cUPadded  = new imgpel[(_width+80)*(_height+80)];
-    imgpel* cVPadded  = new imgpel[(_width+80)*(_height+80)];
+  /* upsample the Chroma into new buffer */
+  imgpel* refUChroma = new imgpel[_frameSize];
+  imgpel* refVChroma = new imgpel[_frameSize];
+  imgpel* currUChroma = new imgpel[_frameSize];
+  imgpel* currVChroma = new imgpel[_frameSize];
+  imgpel* rUPadded  = new imgpel[(_width+80)*(_height+80)];
+  imgpel* rVPadded  = new imgpel[(_width+80)*(_height+80)];
+  imgpel* cUPadded  = new imgpel[(_width+80)*(_height+80)];
+  imgpel* cVPadded  = new imgpel[(_width+80)*(_height+80)];
 
-    int ww = _width>>1;
-    int hh = _height>>1;
-    bilinear(prevChroma, refUChroma, ww, hh, ww, hh);
-    bilinear(prevChroma+(_frameSize>>2), refVChroma, ww, hh, ww, hh);
+  int ww = _width>>1;
+  int hh = _height>>1;
+  bilinear(prevChroma, refUChroma, ww, hh, ww, hh);
+  bilinear(prevChroma+(_frameSize>>2), refVChroma, ww, hh, ww, hh);
 
-    bilinear(currChroma, currUChroma, ww, hh, ww, hh);
-    bilinear(currChroma+(_frameSize>>2), currVChroma, ww, hh, ww, hh);
-    pad(currUChroma, cUPadded, 40);
-    pad(currVChroma, cVPadded, 40);
-    pad(refUChroma, rUPadded, 40);
-    pad(refVChroma, rVPadded, 40);
+  bilinear(currChroma, currUChroma, ww, hh, ww, hh);
+  bilinear(currChroma+(_frameSize>>2), currVChroma, ww, hh, ww, hh);
+  pad(currUChroma, cUPadded, 40);
+  pad(currVChroma, cVPadded, 40);
+  pad(refUChroma, rUPadded, 40);
+  pad(refVChroma, rVPadded, 40);
 
-    // TODO: FIX ME TO WORK WITH PADDING
-    ME(refUChroma, currUChroma, refVChroma, currVChroma);
-    //copy mv
-    for (int iter = 0; iter < 7; iter++) 
-      spatialSmooth(rUPadded, rVPadded, cUPadded, cVPadded, _mvs, _blockSize, 40); 
-  }
+  // TODO: FIX ME TO WORK WITH PADDING
+  ME(refUChroma, currUChroma, refVChroma, currVChroma);
+  //copy mv
+  for (int iter = 0; iter < 7; iter++) 
+    spatialSmooth(rUPadded, rVPadded, cUPadded, cVPadded, _mvs, _blockSize, 40); 
 
   // TODO: FIX MC TO WORK WITH PADDING
   MC(imgPrevKey, imgCurrFrame);
@@ -261,7 +256,6 @@ void SideInformation::pad(imgpel* src, imgpel* dst, const int iPadSize)
 }
 
 
-#if RESIDUAL_CODING
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 void SideInformation::getResidualFrame(imgpel* bRefFrame, imgpel* currFrame, int* residue)
@@ -299,8 +293,6 @@ void SideInformation::getRecFrame(imgpel *imgBReference, int *iResidue, imgpel *
       iIndex++;
     }
 }
-
-#endif
 
 #if OBMC
 const int SideInformation::_H[3][8][8] =

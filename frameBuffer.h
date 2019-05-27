@@ -14,8 +14,8 @@ public:
     _prevFrame        = new imgpel[frameSize];
     _currFrame        = new imgpel[frameSize];
     _nextFrame        = new imgpel[frameSize];
-    _prevChroma       = new imgpel[frameSize];
-    _currChroma       = new imgpel[frameSize];
+    _prevChroma       = new imgpel[frameSize>>1];
+    _currChroma       = new imgpel[frameSize>>1];
     _sideInfoFrame    = new imgpel[frameSize];
     _origFrame        = new imgpel[frameSize];
 
@@ -39,7 +39,6 @@ public:
   imgpel*  getNextFrame()        { return _nextFrame; };
   imgpel*  getorigFrame()        { return _origFrame; };
   imgpel*  getSideInfoFrame()    { return _sideInfoFrame; };
-//  imgpel** getRefFrames()        { return _refFrames; };
   int*     getDctFrame()         { return _dctFrame; };
   int*     getQuantDctFrame()    { return _quantDctFrame; };
   int*     getDecFrame()         { return _decFrame; };
@@ -53,7 +52,6 @@ private:
   imgpel*  _nextFrame;
   imgpel*  _origFrame;
   imgpel*  _sideInfoFrame;
-//  imgpel** _refFrames;
   int*     _dctFrame;
   int*     _quantDctFrame;
   int*     _decFrame;

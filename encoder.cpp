@@ -17,13 +17,11 @@
 
 using namespace std;
 
-# if RESIDUAL_CODING
 const int Encoder::Scale[3][8] = {
   {8, 6, 6, 4, 4, 3, 2, 1},
   {8, 8, 8, 4, 4, 4, 2, 1},
   {4, 4, 4, 4, 3, 2, 2, 1}
 };
-# endif // RESIDUAL_CODING
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -43,16 +41,20 @@ Encoder::Encoder(map<string, string> configMap)
   _numFrames     = atoi(configMap["NumFrames"].c_str());
   _gop           = atoi(configMap["Gop"].c_str());
 
-  _files->addFile("src", configMap["SrcFile"])
-    ->openFile("rb");
-  _files->addFile("wz",  configMap["WZFile"])
-    ->openFile("wb");
+  string wzFileName = configMap["WZFile"];
+  _files->addFile("src", configMap["SrcFile"])->openFile("rb");
+  _files->addFile("wz",  wzFileName)->openFile("wb");
   _files->addFile("key", configMap["KeyFile"]);
   _files->addFile("chroma", configMap["ChromaFile"]);
 
-  _bs = new Bitstream(1024, _files->getFile("wz")
-    ->getFileHandle());
+  string ubs = wzFileName.substr(0, wzFileName.find(".bin")) + ".u.bin";
+  string vbs = wzFileName.substr(0, wzFileName.find(".bin")) + ".v.bin";
+  _files->addFile("wzU",  ubs.c_str())->openFile("wb");
+  _files->addFile("wzV",  vbs.c_str())->openFile("wb");
 
+  _bs = new Bitstream(1024, _files->getFile("wz")->getFileHandle());
+  _bsU = new Bitstream(1024, _files->getFile("wzU")->getFileHandle());
+  _bsV = new Bitstream(1024, _files->getFile("wzV")->getFileHandle());
   initialize();
 }
 
@@ -116,8 +118,6 @@ void Encoder::encodeKeyFrame()
 {
   string srcFileName = _files->getFile("src")->getFileName();
   string keyFileName = _files->getFile("key")->getFileName();
-  string chromaFileName = _files->getFile("chroma")->getFileName();
-
 
   cout << "Running JM to encode key frames" << endl;
 
@@ -134,23 +134,6 @@ void Encoder::encodeKeyFrame()
   cmd << " > jm.log;";
   cmd << "cp stats.dat " << BIN_DIR;
   system(cmd.str().c_str());
-
-  cout << "Encoding chroma planes" << endl << endl;
-
-  stringstream cmd2(stringstream::in | stringstream::out);
-  cmd2 << "cd jm; ";
-  cmd2 << "./lencod.exe -d encoder_intra_main.cfg ";
-  cmd2 << "-p InputFile=\"" << BIN_DIR << "/" << srcFileName << "\" ";
-  cmd2 << "-p ReconFile=\"" << BIN_DIR << "/" << chromaFileName << "\" ";
-  cmd2 << "-p FramesToBeEncoded=" << _numFrames << " ";
-  cmd2 << "-p QPISlice=" << _keyQp << " ";
-  cmd2 << "-p SourceWidth=" << _frameWidth << " ";
-  cmd2 << "-p SourceHeight=" << _frameHeight << " ";
-  cmd2 << " > jm.log;";
-  cmd2 << " cp stats.dat " << BIN_DIR << "/" << "statsChroma.dat";
-  system(cmd2.str().c_str());
-
-
   _files->getFile("key")->openFile("rb");
 }
 
@@ -177,11 +160,17 @@ void Encoder::encodeWzFrame()
 
   imgpel* currFrame     = _fb->getCurrFrame();
   imgpel* prevFrame     = _fb->getPrevFrame();
-  imgpel* tempPtr;
+  imgpel* currChroma    = _fb->getCurrChroma();
+  imgpel* prevChroma    = _fb->getPrevChroma();
   int*    dctFrame      = _fb->getDctFrame();
   int*    quantDctFrame = _fb->getQuantDctFrame();
 
   int*    residue       = new int[_frameSize];
+  int*    chromaResidue = new int[_frameSize>>1];
+  int*    dctUFrame     = new int[_frameSize>>2];
+  int*    dctVFrame     = new int[_frameSize>>2];
+  int*    quantUFrame   = new int[_frameSize>>2];
+  int*    quantVFrame   = new int[_frameSize>>2];
 
   timeStart = clock();
 
@@ -192,6 +181,7 @@ void Encoder::encodeWzFrame()
   for (int keyFrameNo = 0; keyFrameNo < _numFrames/_gop; keyFrameNo++) {
     fseek(fReadPtr, (3*keyFrameNo*_frameSize)>>1, SEEK_SET);
     fread(prevFrame, _frameSize, 1, fReadPtr);
+    fread(prevChroma, _frameSize>>1, 1, fReadPtr);
     for (int idx = 1; idx < _gop; idx++) {
       // Start encoding the WZ frame
       int wzFrameNo = keyFrameNo*_gop + idx;
@@ -201,19 +191,15 @@ void Encoder::encodeWzFrame()
       // Read current frame from the source file
       fseek(fReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
       fread(currFrame, _frameSize, 1, fReadPtr);
+      fread(currChroma, _frameSize>>1, 1, fReadPtr);
 
       // ---------------------------------------------------------------------
       // STAGE 1 - Residual coding & DCT
       // ---------------------------------------------------------------------
-# if RESIDUAL_CODING
-      computeResidue(residue);
+      for (int idx = 0; idx < _frameSize; idx++)
+        residue[idx] = currFrame[idx] - prevFrame[idx];
 
-      // TODO RC PATTERN
-
-      _trans->dctTransform(residue, dctFrame);
-# else // if !RESIDUAL_CODING
-      _trans->dctTransform(currFrame, dctFrame);
-# endif // RESIDUAL_CODING
+      _trans->dctTransform(residue, dctFrame, _frameWidth, _frameHeight);
 
       updateMaxValue(dctFrame);
 
@@ -225,9 +211,7 @@ void Encoder::encodeWzFrame()
       // ---------------------------------------------------------------------
       // STAGE 3 - Quantization
       // ---------------------------------------------------------------------
-      _trans->quantization(dctFrame, quantDctFrame);
-
-      // TODO SCALER PATTERN
+      _trans->quantization(dctFrame, quantDctFrame, _frameWidth, _frameHeight);
 
       // ---------------------------------------------------------------------
       // STAGE 4 - Mode decision
@@ -241,8 +225,6 @@ void Encoder::encodeWzFrame()
       // ---------------------------------------------------------------------
 # if SKIP_MODE
       generateSkipMask();
-
-      // TODO SKIP PATTERN
 
       encodeSkipMask();
 # endif // SKIP_MODE
@@ -286,11 +268,7 @@ void Encoder::encodeWzFrame()
       // ---------------------------------------------------------------------
       // STAGE 7 - Write parity and CRC bits to the bitstream
       // ---------------------------------------------------------------------
-# if RESIDUAL_CODING
       for (int i = 0; i < _rcBitPlaneNum; i++)
-# else // if !RESIDUAL_CODING
-      for (int i = 0; i < BitPlaneNum[_qp]; i++)
-# endif // RESIDUAL_CODING
       {
         for (int j = 0; j < _bitPlaneLength; j++)
           _bs->write(int(_parity[j+i*_bitPlaneLength]), 1);
@@ -307,11 +285,39 @@ void Encoder::encodeWzFrame()
 #   endif // HARDWARE_LDPC
 # endif // !HARDWARE_FLOW
       }
+      // Reset crcPtr
       _crcPtr = _crc;
-      memcpy(prevFrame, currFrame, _frameSize);
-      /*tempPtr = prevFrame;
-      prevFrame = currFrame;
-      currFrame = tempPtr*/;
+
+      // ---------------------------------------------------------------------
+      // STAGE 8 - Encode Chroma planes and Write to Bit-stream
+      // ---------------------------------------------------------------------
+      // TODO: implement Chroma encoding
+      // - residual enc                       CHECK
+      // - DCT (can reuse transforms)         CHECK
+      // - Quant (might need different        CHECK  
+      // - Entropy Enc                        CHECK
+      for (int idx = 0; idx < _frameSize>>1; idx++)
+        chromaResidue[idx] = currChroma[idx] - prevChroma[idx];
+
+      _trans->dctTransform(chromaResidue, dctUFrame,
+                           _frameWidth>>1, _frameHeight>>1);
+      _trans->dctTransform(chromaResidue + (_frameSize>>2),
+                           dctVFrame, _frameWidth>>1, _frameHeight>>1);
+      _trans->quantization(dctUFrame, quantUFrame, _frameWidth>>1, _frameHeight>>1);
+      _trans->quantization(dctVFrame, quantVFrame, _frameWidth>>1, _frameHeight>>1);
+      int bitsU = _cavlc->encode(quantUFrame, _bsU);
+      int bitsV = _cavlc->encode(quantVFrame, _bsV);
+      cout << (bitsU + bitsV) / 1024  << " Chroma kbits" << endl;
+# if HARDWARE_FLOW
+      if (bitsU%32 != 0) {
+        int dummy = 32 - (bitsU%32);
+        _bsU->write(0, dummy);
+      }
+      if (bitsV%32 != 0) {
+        int dummy = 32 - (bitsV%32);
+        _bsV->write(0, dummy);
+      }
+# endif // HARDWARE_FLOW
     } // Finish encoding the WZ frame
   }
 
@@ -330,63 +336,6 @@ void Encoder::encodeWzFrame()
   cout << "Total   encoding time: " << cpuTime << "(s)" << endl;
   cout << "Average encoding time: " << cpuTime/_numFrames << "(s)" << endl;
   cout << "--------------------------------------------------" << endl;
-}
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-void Encoder::computeResidue(int* residue)
-{
-  int     blockCount = 0;
-  imgpel* refFrame = _fb->getPrevFrame();
-  imgpel* currentFrame = _fb->getCurrFrame();
-
-# if !HARDWARE_OPT
-  int* dirList = new int[_frameSize/64];
-
-  memset(dirList, 0, 4*_frameSize/64);
-# endif
-
-  for (int j = 0; j < _frameHeight; j += ResidualBlockSize)
-    for (int i = 0; i < _frameWidth; i += ResidualBlockSize) {
-      int bckDist; // backward distortion
-      int fwdDist; // forward distortion
-
-      bckDist = computeSad(refFrame + i + j*_frameWidth,
-                           currentFrame + i + j*_frameHeight,
-                           _frameWidth, _frameWidth, 1, 1, ResidualBlockSize);
-
-      for (int y = 0; y < ResidualBlockSize; y++)
-        for (int x = 0; x < ResidualBlockSize; x++) {
-          int idx = (i+x) + (j+y)*_frameWidth;
-
-          residue[idx] = currentFrame[idx] - refFrame[idx];
-        }
-
-      blockCount++;
-    }
-
-# if !HARDWARE_FLOW
-    // Encode motion vector
-    for (int i = 0; i < _frameSize/64; i++)
-      _bs->write(dirList[i], 1);
-# endif
-}
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-int Encoder::computeSad(imgpel* blk1, imgpel* blk2, int width1, int width2, int step1, int step2, int blockSize)
-{
-  int sad = 0;
-
-  for (int y = 0; y < blockSize; y++)
-    for (int x = 0; x < blockSize; x++) {
-      imgpel pel1 = *(blk1 + step1*x + step1*y*width1);
-      imgpel pel2 = *(blk2 + step2*x + step2*y*width2);
-
-      sad += abs(pel1 - pel2);
-    }
-
-  return sad;
 }
 
 // -----------------------------------------------------------------------------
@@ -411,59 +360,11 @@ void Encoder::computeQuantStep()
 {
   for (int j = 0; j < 4; j++) {
     for (int i = 0; i < 4; i++) {
-# if RESIDUAL_CODING
-
-#   if !HARDWARE_FLOW
-      _bs->write(abs(_maxValue[j][i]), 11);
-#   endif
-
       if (QuantMatrix[_qp][j][i] != 0) {
-#   if HARDWARE_QUANTIZATION
         _quantStep[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_qp][j][i]);
-#   else // if !HARDWARE_QUANTIZATION
-        int iInterval = 1 << QuantMatrix[_qp][j][i];
-
-        _quantStep[j][i] = (int)ceil(double(2*abs(_maxValue[j][i]))/double(iInterval-1));
-        _quantStep[j][i] = Max(_quantStep[j][i], MinQStepSize[_qp][j][i]);
-#   endif // HARDWARE_QUANTIZATION
       }
       else
         _quantStep[j][i] = 1;
-
-# else // if !RESIDUAL_CODING
-
-      if (i != 0 || j != 0) {
-        _bs->write(abs(_maxValue[j][i]), 11);
-
-#   if HARDWARE_QUANTIZATION
-        if (QuantMatrix[_qp][j][i] != 0)
-          _quantStep[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_qp][j][i]);
-        else
-          _quantStep[j][i] = 0;
-#   else // if !HARDWARE_QUANTIZATION
-        int iInterval = 1 << (QuantMatrix[_qp][j][i]);
-
-#     if AC_QSTEP
-        if (QuantMatrix[_qp][j][i] != 0) {
-          _quantStep[j][i] = (int)ceil(double(2*abs(_maxValue[j][i]))/double(iInterval-1));
-
-          if (_quantStep[j][i] < 0)
-            _quantStep[j][i] = 0;
-        }
-        else
-          _quantStep[j][i] = 1;
-#     else // if !AC_QSTEP
-        if (QuantMatrix[_qp][j][i] != 0)
-          _quantStep[j][i] = ceil(double(2*abs(_maxValue[j][i]))/double(iInterval));
-        else
-          _quantStep[j][i] = 1;
-#     endif // AC_QSTEP
-
-#   endif // HARDWARE_QUANTIZATION
-      }
-      else
-        _quantStep[j][i] = 1 << (DC_BITDEPTH-QuantMatrix[_qp][j][i]);
-# endif // RESIDUAL_CODING
     }
   }
 }
@@ -576,18 +477,7 @@ void Encoder::generateSkipMask()
   int threshold = 5;
 # endif // HARDWARE_OPT
 
-# if RESIDUAL_CODING
   int* frame    = _fb->getQuantDctFrame();
-# else // if !RESIDUAL_CODING
-  int* frame    = new int[_frameSize];
-  int* frameDct = new int[_frameSize];
-
-  for (int i = 0; i < _frameSize; i++)
-    frame[i] = _fb->getPrevFrame()[i] - _fb->getCurrFrame()[i];
-
-  _trans->dctTransform(frame, frameDct);
-  _trans->quantization(frameDct, frame);
-# endif // !RESIDUAL_CODING
 
   memset(_skipMask, 0x0, sizeof(int)*_bitPlaneLength);
 
@@ -612,11 +502,6 @@ void Encoder::generateSkipMask()
 
       _skipMask[blockIndex] = (distortion < threshold) ? 1 : 0;
     }
-
-# if !RESIDUAL_CODING
-  delete [] frame;
-  delete [] frameDct;
-# endif // !RESIDUAL_CODING
 }
 
 // -----------------------------------------------------------------------------
@@ -653,93 +538,39 @@ int Encoder::encodeSkipMask()
 # endif // HARDWARE_OPT
 
   if (type > 2) type = 2;
-
   _bs->write(type, 2);
-
   bitCount = 2;
 
   // Directly output first bit to bitstream
   sign = _skipMask[0];
-
   _bs->write(sign, 1);
-
   bitCount++;
   run++;
   index++;
-
-# if TESTPATTERN
-  File* patternFile;
-  FILE* patternFh;
-
-  patternFile = _files->addFile("pattern_rlc", "pattern_rlc.dat");
-  patternFile->openFile("w");
-  patternFh = patternFile->getFileHandle();
-
-  for (int idx = 1; idx <= 8; idx++) {
-    int data = (sign >> (32-idx*4)) & 0xf;
-    fprintf(patternFh, "%x", data);
-  }
-  fprintf(patternFh, "\n");
-# endif // TESTPATTERN
 
   // Huffman code for other bits
   while (index < _bitPlaneLength) {
     if (_skipMask[index] == sign) {
       run++;
-
       if (run == 16) { // reach maximum run length
         bitCount += getHuffmanCode(_qp, type, run-1, code, length);
-
         _bs->write(code, length);
-
         run = 1;
-
-# if TESTPATTERN
-        for (int idx = 1; idx <= 8; idx++) {
-          int data = (code >> (32-idx*4)) & 0xf;
-          fprintf(patternFh, "%x", data);
-        }
-        fprintf(patternFh, "\n");
-# endif // TESTPATTERN
       }
     }
     else {
       bitCount += getHuffmanCode(_qp, type, run-1, code, length);
-
       _bs->write(code, length);
-
       sign = _skipMask[index];
       run = 1;
-
-# if TESTPATTERN
-      for (int idx = 1; idx <= 8; idx++) {
-        int data = (code >> (32-idx*4)) & 0xf;
-        fprintf(patternFh, "%x", data);
-      }
-      fprintf(patternFh, "\n");
-# endif // TESTPATTERN
     }
-
     index++;
   }
 
   if (run != 0) {
     bitCount += getHuffmanCode(_qp, type, run-1, code, length);
-
     _bs->write(code, length);
-
-# if TESTPATTERN
-    for (int idx = 1; idx <= 8; idx++) {
-      int data = (code >> (32-idx*4)) & 0xf;
-      fprintf(patternFh, "%x", data);
-    }
-    fprintf(patternFh, "\n");
-# endif // TESTPATTERN
   }
-
-# if TESTPATTERN
-  patternFile->closeFile();
-# endif // TESTPATTERN
 
 # if HARDWARE_FLOW
   if (bitCount%32 != 0) { // pad zero
@@ -775,11 +606,7 @@ void Encoder::encodeFrameLdpca(int* frame)
     int i = ScanOrder[band][0];
     int j = ScanOrder[band][1];
 
-# if RESIDUAL_CODING
     for (bitPosition = _rcQuantMatrix[j][i]-1; bitPosition >= 0; bitPosition--)
-# else // if !RESIDUAL_CODING
-    for (bitPosition = QuantMatrix[_qp][j][i]-1; bitPosition >= 0; bitPosition--)
-# endif // RESIDUAL_CODING
     {
       setupLdpcaSource(frame, ldpcaSource, i, j, bitPosition);
 

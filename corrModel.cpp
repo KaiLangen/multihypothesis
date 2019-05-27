@@ -132,7 +132,6 @@ double CorrModel::getSoftInput(int* si,int* skipMask,int iCurrPos,int *iDecoded,
     {
       iIndex=i+j*(iWidth/4);
       iQuantSize=_codec->getQuantStep(x, y);
-#if RESIDUAL_CODING
       iBitLength= _codec->getQuantMatrix(iQP, x, y);
 
       if(iMode==2)
@@ -145,20 +144,6 @@ double CorrModel::getSoftInput(int* si,int* skipMask,int iCurrPos,int *iDecoded,
 
         iSideInfo = (sign==0)?value:-1*value;
       }
-#else
-      iBitLength=(x==0 && y==0) ? _codec->getQuantMatrix(iQP, x, y)+1 : _codec->getQuantMatrix(iQP, x, y);
-
-      if(iMode==2 || (x==0 && y==0))
-        iSideInfo = si[(i*4+x)+(j*4+y)*iWidth];
-      else
-      {
-        mask = (0x1<<(_codec->getQuantMatrix(iQP, x, y)-1))-1;
-        int sign = (si[(i*4+x)+(j*4+y)*iWidth]>>(_codec->getQuantMatrix(iQP, x, y)-1))&0x1;
-        int value = si[(i*4+x)+(j*4+y)*iWidth] & mask;
-
-        iSideInfo = (sign==0)?value:-1*value;
-      }
-#endif
 
       p0=getCondProb(0,iSideInfo,iBitLength,iCurrPos,iDecoded[(i)+(j)*iWidth/4],dAlpha[(i*4+x)+(j*4+y)*iWidth],iQuantSize,iMode);
       p1=getCondProb(1,iSideInfo,iBitLength,iCurrPos,iDecoded[(i)+(j)*iWidth/4],dAlpha[(i*4+x)+(j*4+y)*iWidth],iQuantSize,iMode);
@@ -208,7 +193,7 @@ void CorrModel::correlationNoiseModeling(imgpel *imgMCFoward,imgpel* imgMCBackwa
     {
       residue[i+j*iWidth]=float(imgMCFoward[i+j*iWidth]-imgMCBackward[i+j*iWidth])/2;
     }
-  _trans->dctTransform(residue,residue_b);
+  _trans->dctTransform(residue,residue_b, iWidth, iHeight);
 
   for(int j=0;j<4;j++)
     for(int i=0;i<4;i++)
