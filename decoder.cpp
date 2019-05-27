@@ -150,7 +150,7 @@ void Decoder::decodeWZframe()
   imgpel* currChroma    = _fb->getCurrChroma();
   imgpel* prevChroma    = _fb->getPrevChroma();
   imgpel* oriCurrFrame  = _fb->getorigFrame();
-//  imgpel* imgSI         = _fb->getSideInfoFrame();
+  imgpel* imgSI         = _fb->getSideInfoFrame();
 
 // Luma Buffers
 //  int* iDCT             = _fb->getDctFrame();
@@ -183,7 +183,7 @@ void Decoder::decodeWZframe()
 
   timeStart = clock();
   int cw = _frameWidth >> 1;
-  int ch = _frameWidth >> 1;
+  int ch = _frameHeight >> 1;
 
   // Main loop
   // ---------------------------------------------------------------------------
@@ -210,7 +210,7 @@ void Decoder::decodeWZframe()
       // STAGE 1 - Decode Chroma Data
       // ---------------------------------------------------------------------
       int bitsU, bitsV;
-      // size of integer buffer in bytes is: (_frameSize >> 2) * 4
+      // size of integer buffer in bytes is: (frameSize >> 2) * 4 == frameSize
       memset(iDecodedU, 0, _frameSize);
       memset(iDecodedV, 0, _frameSize);
       memset(iQuantU, 0, _frameSize);
@@ -234,25 +234,18 @@ void Decoder::decodeWZframe()
       }
 # endif // HARDWARE_FLOW
 
-      // TODO Fix inverse quantization to prevent seg fault.
-      // Maybe create new invQuant function without side-information?
       _trans->invQuantization(iDecodedU, iQuantU, cw, ch);
       _trans->invQuantization(iDecodedV, iQuantV, cw, ch);
       _trans->invDctTransform(iQuantU, iDctU, cw, ch);
       _trans->invDctTransform(iQuantV, iDctV, cw, ch);
 
-      // undo residual encoding
+      // add residual to reference frame
       for (int idx = 0; idx < _frameSize>>2; idx++) {
-        currChroma[idx] = iDctU[idx] + prevKeyChroma[idx];
+        currChroma[idx] = prevKeyChroma[idx] + iDctU[idx];
         currChroma[idx+(_frameSize>>2)] = 
-          iDctV[idx] + prevKeyChroma[idx+(_frameSize>>2)];
+          prevKeyChroma[idx+(_frameSize>>2)] + iDctV[idx];
       }
       
-
-      fwrite(oriCurrFrame, _frameSize, 1, fWritePtr);
-      fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
-      continue;
-/*
       // ---------------------------------------------------------------------
       // STAGE 2 - Create side information
       // ---------------------------------------------------------------------
@@ -268,6 +261,8 @@ void Decoder::decodeWZframe()
       // copy curr buffers into prev buffer
       memcpy(prevLuma, imgSI, _frameSize);
       memcpy(prevChroma, currChroma, _frameSize>>1);
+
+/*
       continue;
       // ---------------------------------------------------------------------
       // STAGE 3 - WZ Decode
