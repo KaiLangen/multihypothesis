@@ -23,7 +23,7 @@ public:
   void encodeKeyFrame();
   void encodeWzFrame();
 
-private:
+protected:
   void initialize();
 
   void encodeWzHeader();
@@ -45,7 +45,7 @@ private:
 
   void report();
 
-private:
+protected:
   const static int  Scale[3][8];
 
   FileManager*      _files;

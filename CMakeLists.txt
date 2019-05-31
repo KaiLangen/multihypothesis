@@ -7,6 +7,7 @@ include_directories(${CMAKE_BINARY_DIR}/generated/)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -da")
+find_package(OpenCV REQUIRED)
 #find_package( OpenCV REQUIRED )
 
 #execute_process (
@@ -50,3 +51,12 @@ add_executable(decoder decoder.cpp
 )
 target_link_libraries(decoder utils m)
 
+# Tester
+add_executable(tester  encoder.cpp
+                       cavlcEnc.cpp
+                       cavlcDec.cpp
+                       ldpcaEnc.cpp
+                       chroma_test.cpp
+)
+
+target_link_libraries(tester utils m ${OpenCV_LIBS})

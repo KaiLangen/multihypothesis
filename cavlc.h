@@ -22,7 +22,7 @@ protected:
   const static byte RunTableL[15][16];
   const static byte RunTableC[15][16];
 
-  int getNumNonzero(int x,int y);
+  int getNumNonzero(int x,int y, int w);
 
   Codec*  _codec;
 

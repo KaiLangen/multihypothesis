@@ -1,3 +1,6 @@
+#include <cassert>
+#include <iostream>
+
 #include "bitstream.h"
 
 // -----------------------------------------------------------------------------
@@ -13,6 +16,7 @@ Bitstream::Bitstream(int bufferCapacity, FILE* fileHandle)
   _bufferSize     = 0;
   _byteCount      = 0;
   _bitCount       = 0;
+  _readCount      = 0;
   _streamBuffer   = new imgpel[_bufferCapacity];
 }
 
@@ -89,6 +93,7 @@ void Bitstream::write1Bit(int bitValue)
       _byteCount = 0;
     }
   }
+  _bitCount++;
 }
 
 // -----------------------------------------------------------------------------
@@ -97,10 +102,16 @@ bool Bitstream::read1Bit()
 {
   if (_byteCount == _bufferSize) {
     _bufferSize = fread(_streamBuffer, 1, _bufferCapacity, _fileHandle);
+    if(_bufferSize == 0) {
+      std::cout<<"bufferCapacity\tbufferSize\tbyteCount\tbitCount\treadCount"<<std::endl;
+      std::cout<<_bufferCapacity<<"\t\t"<<_bufferSize<<"\t\t";
+      std::cout<<_byteCount<<"\t\t"<<_bitCount<<"\t\t"<<_readCount<<std::endl;
+      assert(false);
+    }
     _byteCount = 0;
-
     _byteBuffer = _streamBuffer[_byteCount];
     _numEmptyBits = 0;
+    _readCount++;
   }
 
   bool bit = _byteBuffer & (1 << 7);

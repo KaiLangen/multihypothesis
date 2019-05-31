@@ -39,11 +39,12 @@ int CavlcDec::decode(int* iDCT, int ix, int iy, Bitstream* bs)
   if (ix == 0 && iy == 0)
     nc = 0;
   else if (ix == 0 && iy != 0)
-    nc = getNumNonzero(ix, iy-4);
+    nc = getNumNonzero(ix, iy-4, width);
   else if (ix != 0 && iy == 0)
-    nc = getNumNonzero(ix-4, iy);
+    nc = getNumNonzero(ix-4, iy, width);
   else
-    nc = (getNumNonzero(ix, iy-4) + getNumNonzero(ix-4, iy) + 1) >> 1;
+    nc = (getNumNonzero(ix, iy-4, width) +
+          getNumNonzero(ix-4, iy, width) + 1) >> 1;
 
   if (nc < 2)
     vlc = 0;
@@ -56,11 +57,10 @@ int CavlcDec::decode(int* iDCT, int ix, int iy, Bitstream* bs)
 
   iBitCount += decodeNumCoeffTrailingOnes(numCoeff, t1s, vlc, bs);
 
-  _mbs[index].nnz[0][0] = numCoeff;
-
   if (numCoeff == 0)
     return iBitCount;
 
+  _mbs[index].nnz[0][0] = numCoeff;
   iBitCount += decodeLevel(numCoeff, t1s, _mbs[index].level, bs);
 
   if (numCoeff == 16) {
@@ -91,10 +91,7 @@ int CavlcDec::decode(int* iDCT, int ix, int iy, Bitstream* bs)
 #endif
 
   for (int i = numCoeff-1; i >= 0; i--) {
-#if !MODE_DECISION
     iCoeffNum += _mbs[index].iRun[i] + 1;
-#endif
-    assert(iCoeffNum < 16);
 
     int x = ScanOrder[iCoeffNum][0];
     int y = ScanOrder[iCoeffNum][1];

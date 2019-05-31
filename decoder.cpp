@@ -241,25 +241,27 @@ void Decoder::decodeWZframe()
 
       // add residual to reference frame
       for (int idx = 0; idx < _frameSize>>2; idx++) {
-        currChroma[idx] = prevKeyChroma[idx] + iDctU[idx];
-        currChroma[idx+(_frameSize>>2)] = 
-          prevKeyChroma[idx+(_frameSize>>2)] + iDctV[idx];
+        currChroma[idx] = iDctU[idx];
+        currChroma[idx+(_frameSize>>2)] = iDctV[idx];
+//        currChroma[idx] = prevKeyChroma[idx] + iDctU[idx];
+//        currChroma[idx+(_frameSize>>2)] = 
+//          prevKeyChroma[idx+(_frameSize>>2)] + iDctV[idx];
       }
       
       // ---------------------------------------------------------------------
       // STAGE 2 - Create side information
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
-      _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
+//      _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
+//
+//      float currPSNRSI0 = calcPSNR(oriCurrFrame, imgSI, _frameSize);
+//      cout << "side information quality " << currPSNRSI0 << endl;
 
-      float currPSNRSI0 = calcPSNR(oriCurrFrame, imgSI, _frameSize);
-      cout << "side information quality " << currPSNRSI0 << endl;
-
-      fwrite(imgSI, _frameSize, 1, fWritePtr);
+      fwrite(oriCurrFrame, _frameSize, 1, fWritePtr);
       fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
 
       // copy curr buffers into prev buffer
-      memcpy(prevLuma, imgSI, _frameSize);
+      memcpy(prevLuma, oriCurrFrame, _frameSize);
       memcpy(prevChroma, currChroma, _frameSize>>1);
 
 /*

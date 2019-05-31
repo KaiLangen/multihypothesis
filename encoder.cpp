@@ -171,10 +171,17 @@ void Encoder::encodeWzFrame()
   int*    dctVFrame     = new int[_frameSize>>2];
   int*    quantUFrame   = new int[_frameSize>>2];
   int*    quantVFrame   = new int[_frameSize>>2];
+  int cw = _frameWidth>>1;
+  int ch = _frameHeight>>1;
 
   timeStart = clock();
 
   encodeWzHeader();
+
+  // ---------------------------------------------------------------------
+  // Calculate quantization step size
+  // ---------------------------------------------------------------------
+  computeQuantStep();
 
   // Main loop
   // ---------------------------------------------------------------------------
@@ -204,24 +211,19 @@ void Encoder::encodeWzFrame()
       updateMaxValue(dctFrame);
 
       // ---------------------------------------------------------------------
-      // STAGE 2 - Calculate quantization step size
-      // ---------------------------------------------------------------------
-      computeQuantStep();
-
-      // ---------------------------------------------------------------------
-      // STAGE 3 - Quantization
+      // STAGE 2 - Quantization
       // ---------------------------------------------------------------------
       _trans->quantization(dctFrame, quantDctFrame, _frameWidth, _frameHeight);
 
       // ---------------------------------------------------------------------
-      // STAGE 4 - Mode decision
+      // STAGE 3 - Mode decision
       // ---------------------------------------------------------------------
 # if MODE_DECISION
       selectCodingMode(quantDctFrame);
 # endif // MODE_DECISION
 
       // ---------------------------------------------------------------------
-      // STAGE 5 - Skip mode
+      // STAGE 4 - Skip mode
       // ---------------------------------------------------------------------
 # if SKIP_MODE
       generateSkipMask();
@@ -230,7 +232,7 @@ void Encoder::encodeWzFrame()
 # endif // SKIP_MODE
 
       // ---------------------------------------------------------------------
-      // STAGE 6 - Encode (Channel/Entropy)
+      // STAGE 5 - Encode (Channel/Entropy)
       // ---------------------------------------------------------------------
       int numBands = 0;
 
@@ -266,7 +268,7 @@ void Encoder::encodeWzFrame()
       encodeFrameLdpca(quantDctFrame);
 
       // ---------------------------------------------------------------------
-      // STAGE 7 - Write parity and CRC bits to the bitstream
+      // STAGE 6 - Write parity and CRC bits to the bitstream
       // ---------------------------------------------------------------------
       for (int i = 0; i < _rcBitPlaneNum; i++)
       {
@@ -289,7 +291,7 @@ void Encoder::encodeWzFrame()
       _crcPtr = _crc;
 
       // ---------------------------------------------------------------------
-      // STAGE 8 - Encode Chroma planes and Write to Bit-stream
+      // STAGE 7 - Encode Chroma planes and Write to Bit-stream
       // ---------------------------------------------------------------------
       // TODO: implement Chroma encoding
       // - residual enc                       CHECK
@@ -297,14 +299,15 @@ void Encoder::encodeWzFrame()
       // - Quant (might need different        CHECK  
       // - Entropy Enc                        CHECK
       for (int idx = 0; idx < _frameSize>>1; idx++)
-        chromaResidue[idx] = currChroma[idx] - prevChroma[idx];
+        chromaResidue[idx] = currChroma[idx];// - prevChroma[idx];
 
-      _trans->dctTransform(chromaResidue, dctUFrame,
-                           _frameWidth>>1, _frameHeight>>1);
+      _trans->dctTransform(chromaResidue, dctUFrame, cw, ch);
       _trans->dctTransform(chromaResidue + (_frameSize>>2),
-                           dctVFrame, _frameWidth>>1, _frameHeight>>1);
-      _trans->quantization(dctUFrame, quantUFrame, _frameWidth>>1, _frameHeight>>1);
-      _trans->quantization(dctVFrame, quantVFrame, _frameWidth>>1, _frameHeight>>1);
+                           dctVFrame, cw, ch);
+      _trans->quantization(dctUFrame, quantUFrame, cw, ch);
+      _trans->quantization(dctVFrame, quantVFrame, cw, ch);
+      // fake codingMode == 0
+      _numChnCodeBands = 16;
       int bitsU = _cavlc->encode(quantUFrame, _bsU);
       int bitsV = _cavlc->encode(quantVFrame, _bsV);
       cout << (bitsU + bitsV) / 1024  << " Chroma kbits" << endl;
@@ -322,6 +325,8 @@ void Encoder::encodeWzFrame()
   }
 
   _bs->flush();
+  _bsU->flush();
+  _bsV->flush();
 
   timeEnd = clock();
   cpuTime = (timeEnd - timeStart) / CLOCKS_PER_SEC;

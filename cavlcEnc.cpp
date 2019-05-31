@@ -56,7 +56,7 @@ int CavlcEnc::encode(int* frame, Bitstream* bs)
     for (int i = 0; i < width/_blockSize; i++) {
         setupMacroBlock(frame, i, j, width);
         bitCount += encodeMacroBlock(i, j, width, bs);
-    }
+      }
 
   return bitCount;
 }
@@ -124,15 +124,11 @@ int CavlcEnc::encodeMacroBlock(int mbX, int mbY, int width, Bitstream* bs)
   vector<int> runs;             // runs
   vector<int> zeroleft;         // zeroleft
 
-  if (bs == _codec->getBitstream()) {
 # if MODE_DECISION
-    max_coeff_num = 16 - _codec->getNumChnCodeBands();
+  max_coeff_num = 16 - _codec->getNumChnCodeBands();
 # else // if !MODE_DECISION
-    max_coeff_num = 16;
+  max_coeff_num = 16;
 # endif // MODE_DECISION
-  } else {
-    max_coeff_num = 16;
-  }
 
   pLevel = _mbs[mbX + mbY*(width/_blockSize)].coef_lac[0][0];
 
@@ -180,11 +176,12 @@ int CavlcEnc::encodeMacroBlock(int mbX, int mbY, int width, Bitstream* bs)
   if (x == 0 && y == 0)
     nc = 0;
   else if (x == 0 && y != 0)
-    nc = getNumNonzero(x, y-4);
+    nc = getNumNonzero(x, y-4, width);
   else if (x != 0 && y == 0)
-    nc = getNumNonzero(x-4, y);
+    nc = getNumNonzero(x-4, y, width);
   else
-    nc = (getNumNonzero(x, y-4) + getNumNonzero(x-4, y) + 1) >> 1;
+    nc = (getNumNonzero(x, y-4, width) +
+          getNumNonzero(x-4, y, width) + 1) >> 1;
 
   if (nc < 2)
     vlc = 0;

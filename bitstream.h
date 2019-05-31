@@ -53,6 +53,7 @@ private:
 
   int     _bufferCapacity;  //!< Internal buffer capacity
   int     _bufferSize;
+  int     _readCount;       // Added by Kai: tracks number of file reads
   int     _byteCount;       //!< Internal buffer usage byte count
   int     _bitCount;
   imgpel* _streamBuffer;    //!< Internal buffer
