@@ -317,17 +317,20 @@ void Encoder::encodeWzFrame()
       _numChnCodeBands = 0;
       int bitsU = _cavlcU->encode(quantUFrame, _bsU);
       int bitsV = _cavlcV->encode(quantVFrame, _bsV);
-      cout << (bitsU + bitsV) / 1024  << " Chroma kbits" << endl;
 # if HARDWARE_FLOW
       if (bitsU%32 != 0) {
         int dummy = 32 - (bitsU%32);
         _bsU->write(0, dummy);
+        bitsU += dummy;
       }
       if (bitsV%32 != 0) {
         int dummy = 32 - (bitsV%32);
         _bsV->write(0, dummy);
+        bitsV += dummy;
       }
 # endif // HARDWARE_FLOW
+      cout << bitsU << " Chroma bits (U)" << endl;
+      cout << bitsV << " Chroma bits (V)" << endl;
     } // Finish encoding the WZ frame
   }
 

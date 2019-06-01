@@ -57,11 +57,14 @@ int CavlcDec::decode(int* iDCT, int ix, int iy, Bitstream* bs)
 
   iBitCount += decodeNumCoeffTrailingOnes(numCoeff, t1s, vlc, bs);
 
+  _mbs[index].nnz[0][0] = numCoeff;
+
   if (numCoeff == 0)
     return iBitCount;
 
-  _mbs[index].nnz[0][0] = numCoeff;
   iBitCount += decodeLevel(numCoeff, t1s, _mbs[index].level, bs);
+
+  _mbs[index].nnz[0][0] = numCoeff;
 
   if (numCoeff == 16) {
     totalZeros = 0;

@@ -253,12 +253,16 @@ void Decoder::decodeWZframe()
       if (bitsU%32 != 0) {
         int dummy = 32 - (bitsU%32);
         _bsU->read(dummy);
+        bitsU += dummy;
       }
       if (bitsV%32 != 0) {
         int dummy = 32 - (bitsV%32);
         _bsV->read(dummy);
+        bitsV += dummy;
       }
 # endif // HARDWARE_FLOW
+      cout << bitsU << " Chroma bits (U)" << endl;
+      cout << bitsV << " Chroma bits (V)" << endl;
 
       _trans->invQuantization(iDecodedU, iQuantU, cw, ch);
       _trans->invQuantization(iDecodedV, iQuantV, cw, ch);
@@ -287,9 +291,11 @@ void Decoder::decodeWZframe()
       fwrite(imgSI, _frameSize, 1, fWritePtr);
       fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
 
+    }
+  }
       // copy curr buffers into prev buffer
-      memcpy(prevLuma, oriCurrFrame, _frameSize);
-      memcpy(prevChroma, currChroma, _frameSize>>1);
+//      memcpy(prevLuma, imgSI, _frameSize);
+//      memcpy(prevChroma, currChroma, _frameSize>>1);
 
 /*
       continue;
@@ -353,8 +359,6 @@ void Decoder::decodeWZframe()
       memcpy(prevLuma, currLuma, _frameSize);
       memcpy(prevChroma, currChroma, _frameSize>>1);
 */
-    }
-  }
 
   timeEnd = clock();
   cpuTime = (timeEnd - timeStart) / CLOCKS_PER_SEC;
