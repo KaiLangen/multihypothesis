@@ -156,6 +156,7 @@ void Encoder::encodeWzHeader()
 void Encoder::encodeWzFrame()
 {
   FILE* fReadPtr    = _files->getFile("src")->getFileHandle();
+  FILE* fKeyPtr    = _files->getFile("key")->getFileHandle();
 
   clock_t timeStart, timeEnd;
   double cpuTime;
@@ -189,9 +190,9 @@ void Encoder::encodeWzFrame()
   // Main loop
   // ---------------------------------------------------------------------------
   for (int keyFrameNo = 0; keyFrameNo < _numFrames/_gop; keyFrameNo++) {
-    fseek(fReadPtr, (3*keyFrameNo*_frameSize)>>1, SEEK_SET);
-    fread(prevFrame, _frameSize, 1, fReadPtr);
-    fread(prevChroma, _frameSize>>1, 1, fReadPtr);
+    fseek(fKeyPtr, (3*keyFrameNo*_frameSize)>>1, SEEK_SET);
+    fread(prevFrame, _frameSize, 1, fKeyPtr);
+    fread(prevChroma, _frameSize>>1, 1, fKeyPtr);
     for (int idx = 1; idx < _gop; idx++) {
       // Start encoding the WZ frame
       int wzFrameNo = keyFrameNo*_gop + idx;

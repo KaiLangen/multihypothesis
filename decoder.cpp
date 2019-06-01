@@ -281,21 +281,27 @@ void Decoder::decodeWZframe()
       // Predict from coincident Chroma
       _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
 
-      double PSNRY = calcPSNR(oriCurrFrame, imgSI, chsize);
+      double PSNRSI = calcPSNR(oriCurrFrame, imgSI, _frameSize);
       double PSNRU = calcPSNR(oriCurrChroma, currChroma, chsize);
       double PSNRV = calcPSNR(oriCurrChroma+chsize, currChroma+chsize, chsize);
-      cout << "PSNR (Y): " << PSNRY << endl;
+      double PSNRPrevKeyY = calcPSNR(oriCurrFrame, prevKeyLuma, _frameSize);
+      double PSNRPrevKeyU = calcPSNR(oriCurrChroma, prevKeyChroma, chsize);
+      double PSNRPrevKeyV = calcPSNR(oriCurrChroma+chsize,
+                                     prevKeyChroma+chsize, chsize);
+      cout << "PSNR (Y): " << PSNRSI << endl;
       cout << "PSNR (U): " << PSNRU << endl;
       cout << "PSNR (V): " << PSNRV << endl;
-
+      cout << "SI - prev key: " << PSNRSI - PSNRPrevKeyY << endl;
+      cout << "U - prev key: " << PSNRU - PSNRPrevKeyU << endl;
+      cout << "V - prev key: " << PSNRV - PSNRPrevKeyV << endl;
       fwrite(imgSI, _frameSize, 1, fWritePtr);
       fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
 
+      // copy curr buffers into prev buffer
+      memcpy(prevLuma, imgSI, _frameSize);
+      memcpy(prevChroma, currChroma, _frameSize>>1);
     }
   }
-      // copy curr buffers into prev buffer
-//      memcpy(prevLuma, imgSI, _frameSize);
-//      memcpy(prevChroma, currChroma, _frameSize>>1);
 
 /*
       continue;
