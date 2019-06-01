@@ -96,6 +96,8 @@ void Encoder::initialize()
   _trans = new Transform(this);
 
   _cavlc = new CavlcEnc(this, 4);
+  _cavlcU = new CavlcEnc(this, 4);
+  _cavlcV = new CavlcEnc(this, 4);
 
   // Initialize LDPC
   string ladderFile;
@@ -173,6 +175,7 @@ void Encoder::encodeWzFrame()
   int*    quantVFrame   = new int[_frameSize>>2];
   int cw = _frameWidth>>1;
   int ch = _frameHeight>>1;
+  int chsize = _frameSize>>2;
 
   timeStart = clock();
 
@@ -296,20 +299,24 @@ void Encoder::encodeWzFrame()
       // TODO: implement Chroma encoding
       // - residual enc                       CHECK
       // - DCT (can reuse transforms)         CHECK
-      // - Quant (might need different        CHECK  
+      // - Quant                              CHECK  
       // - Entropy Enc                        CHECK
       for (int idx = 0; idx < _frameSize>>1; idx++)
-        chromaResidue[idx] = currChroma[idx];// - prevChroma[idx];
+        chromaResidue[idx] = currChroma[idx] - prevChroma[idx];
 
+      memset(dctUFrame, 0, _frameSize>>2);
+      memset(dctVFrame, 0, _frameSize>>2);
+      memset(quantUFrame, 0, _frameSize>>2);
+      memset(quantVFrame, 0, _frameSize>>2);
       _trans->dctTransform(chromaResidue, dctUFrame, cw, ch);
-      _trans->dctTransform(chromaResidue + (_frameSize>>2),
-                           dctVFrame, cw, ch);
+      _trans->dctTransform(chromaResidue+chsize, dctVFrame, cw, ch);
       _trans->quantization(dctUFrame, quantUFrame, cw, ch);
       _trans->quantization(dctVFrame, quantVFrame, cw, ch);
-      // fake codingMode == 0
-      _numChnCodeBands = 16;
-      int bitsU = _cavlc->encode(quantUFrame, _bsU);
-      int bitsV = _cavlc->encode(quantVFrame, _bsV);
+
+      // all bands are CAVLC coded, none channel coded
+      _numChnCodeBands = 0;
+      int bitsU = _cavlcU->encode(quantUFrame, _bsU);
+      int bitsV = _cavlcV->encode(quantVFrame, _bsV);
       cout << (bitsU + bitsV) / 1024  << " Chroma kbits" << endl;
 # if HARDWARE_FLOW
       if (bitsU%32 != 0) {

@@ -39,7 +39,6 @@ private:
   int* iDctV = new int[_frameSize>>2];
   int* iQuantU = new int[_frameSize>>2];
   int* iQuantV = new int[_frameSize>>2];
-  int* skipMask = new int[_bitPlaneLength];
   imgpel* recon = new imgpel[_frameSize>>1];
   const int cw = _frameWidth >> 1;
   const int ch = _frameHeight >> 1;
@@ -88,9 +87,7 @@ EncTest::EncTest(map<string, string> configMap): Encoder(configMap){
   _qp = 7;
   computeQuantStep();
 
-  fseek(fReadPtr, _frameSize, SEEK_SET);
-  fread(prevChroma, _frameSize>>1, 1, fReadPtr);
-  fseek(fReadPtr, (15*_frameSize)>>1, SEEK_CUR);
+  fseek(fReadPtr, (3*_frameSize>>1), SEEK_SET);
   fseek(fReadPtr, _frameSize, SEEK_CUR);
   fread(currChroma, _frameSize>>1, 1, fReadPtr);
   for (int idx = 0; idx < _frameSize>>1; idx++)
@@ -209,11 +206,14 @@ void EncTest::cavlcEnc() {
   memset(quantVFrame, 0, _frameSize>>2);
 
   _trans->dctTransform(chromaResidue, dctUFrame, cw, ch);
+  _trans->dctTransform(chromaResidue + chsize, dctVFrame, cw, ch);
   _trans->quantization(dctUFrame, quantUFrame, cw, ch);
   _trans->quantization(dctVFrame, quantVFrame, cw, ch);
   _numChnCodeBands = 0;
-  bitsU_in = _cavlc->encode(quantUFrame, _bsU);
-  bitsV_in = _cavlc->encode(quantVFrame, _bsV);
+  CavlcEnc* cavlcEncU = new CavlcEnc(this, 4);
+  CavlcEnc* cavlcEncV = new CavlcEnc(this, 4);
+  bitsU_in = cavlcEncU->encode(quantUFrame, _bsU);
+  bitsV_in = cavlcEncV->encode(quantVFrame, _bsV);
 # if HARDWARE_FLOW
   if (bitsU_in%32 != 0) {
     int dummy = 32 - (bitsU_in%32);
@@ -225,7 +225,7 @@ void EncTest::cavlcEnc() {
   }
 # endif // HARDWARE_FLOW
   cout << "Bits written (U): " << bitsU_in << endl;
-  cout << "Bits written (V): " << bitsV_in << endl;
+  cout << "Bits written (V): " << bitsV_in << endl << endl;
   _bsU->flush();
   _bsV->flush();
   _files->getFile("wzU_in")->closeFile();
@@ -259,73 +259,71 @@ void EncTest::cavlcTest1() {
 
   int bitsU_out = 0;
   int bitsV_out = 0;
-  int buff1[16];
-  int buff2[16];
   // read bits from bitstream
   for (int j = 0; j < ch; j += 4) {
     for (int i = 0; i < cw; i += 4) {
       bitsU_out += cavlcDecU->decode(iDecodedU, i, j, bsU_out);
       bitsV_out += cavlcDecV->decode(iDecodedV, i, j, bsV_out);
-
-      for (int y = 0; y < 4; y++) {
-        for (int x = 0; x < 4; x++) {
-          buff1[y*4+x] = quantVFrame[(j+y)*cw+i+x];
-          buff2[y*4+x] = iDecodedV[(j+y)*cw+i+x];
-        }
-      }
-      assert(calcMSE(buff1, buff2, 16) == 0);
     }
   }
   cout << "bits read (U):" << bitsU_out << endl;
-  cout << "bits read (V):" << bitsV_out << endl;
+  cout << "bits read (V):" << bitsV_out << endl << endl;
   assert(bitsU_in == bitsU_out);
   assert(bitsV_in == bitsV_out);
   assert(calcMSE(quantUFrame, iDecodedU, chsize) == 0);
-  cout << (calcMSE(quantVFrame, iDecodedV, chsize)) << endl;//== 0);
-  cout << (calcPSNR(quantVFrame, iDecodedV, chsize)) << endl;//== 0);
+  assert(calcMSE(quantVFrame, iDecodedV, chsize) == 0);
 }
 
-//void EncTest::cavlcTest2() {
-//  cout << "####################################" << endl; 
-//  cout << "FILE->cavlcDec:" << endl;
-//  cout << "####################################" << endl; 
-//  cout << "Quantized vs. cavlcDecoded:" << endl;
-//  memset(iDecodedU, 0, _frameSize>>2);
-//  memset(iDecodedV, 0, _frameSize>>2);
-//  memset(iDctU, 0, _frameSize>>2);
-//  memset(iDctV, 0, _frameSize>>2);
-//  memset(iQuantU, 0, _frameSize>>2);
-//  memset(iQuantV, 0, _frameSize>>2);
-//  string ubs = "test.u.bin";
-//  string vbs = "test.v.bin";
-//  _files->addFile("wzU_out", ubs.c_str())->openFile("rb");
-//  _files->addFile("wzV_out", vbs.c_str())->openFile("rb");
-//  Bitstream* bsU_out = new Bitstream(1024, _files->getFile("wzU_out")->getFileHandle());
-//  Bitstream* bsV_out = new Bitstream(1024, _files->getFile("wzV_out")->getFileHandle());
-//  CavlcDec* cavlcDecU = new CavlcDec(this, 4);
-//  CavlcDec* cavlcDecV = new CavlcDec(this, 4);
-//
-//  // cavlc decode
-//  int bitsU_out = 0;
-//  int bitsV_out = 0;
-//  for (int j = 0; j < ch; j += 4) {
-//    for (int i = 0; i < cw; i += 4) {
-//      bitsU_out += cavlcDecU->decode(iDecodedU, i, j, bsU_out);
-//      bitsV_out += cavlcDecV->decode(iDecodedV, i, j, bsV_out);
-//    }
-//  }
-//
-//  // inverse Q & DCT
-//  _trans->invQuantization(iDecodedU, iQuantU, cw, ch);
-//  _trans->invQuantization(iDecodedV, iQuantV, cw, ch);
-//  _trans->invDctTransform(iQuantU, iDctU, cw, ch);
-//  _trans->invDctTransform(iQuantV, iDctV, cw, ch);
-//
-//  double currPSNR = calcPSNR(currChroma, iQuantU, chsize);
-//  cout << "PSNR (U): " << currPSNR << endl;
-//  currPSNR = calcPSNR(currChroma, iQuantV, chsize);
-//  cout << "PSNR (V): " << currPSNR << endl;
-//
+void EncTest::cavlcTest2() {
+  cout << "####################################" << endl; 
+  cout << "FILE->cavlcDec->iquant->idct:" << endl;
+  cout << "####################################" << endl; 
+  cout << "Original vs. Reconstructed:" << endl;
+  memset(iDecodedU, 0, _frameSize>>2);
+  memset(iDecodedV, 0, _frameSize>>2);
+  memset(iDctU, 0, _frameSize>>2);
+  memset(iDctV, 0, _frameSize>>2);
+  memset(iQuantU, 0, _frameSize>>2);
+  memset(iQuantV, 0, _frameSize>>2);
+  string ubs = "test.u.bin";
+  string vbs = "test.v.bin";
+  _files->addFile("wzU_out", ubs.c_str())->openFile("rb");
+  _files->addFile("wzV_out", vbs.c_str())->openFile("rb");
+  Bitstream* bsU_out = new Bitstream(1024, _files->getFile("wzU_out")->getFileHandle());
+  Bitstream* bsV_out = new Bitstream(1024, _files->getFile("wzV_out")->getFileHandle());
+  CavlcDec* cavlcDecU = new CavlcDec(this, 4);
+  CavlcDec* cavlcDecV = new CavlcDec(this, 4);
+
+  // cavlc decode
+  int bitsU_out = 0;
+  int bitsV_out = 0;
+  for (int j = 0; j < ch; j += 4) {
+    for (int i = 0; i < cw; i += 4) {
+      bitsU_out += cavlcDecU->decode(iDecodedU, i, j, bsU_out);
+      bitsV_out += cavlcDecV->decode(iDecodedV, i, j, bsV_out);
+    }
+  }
+
+  // inverse Q & DCT
+  _trans->invQuantization(iDecodedU, iQuantU, cw, ch);
+  _trans->invQuantization(iDecodedV, iQuantV, cw, ch);
+  _trans->invDctTransform(iQuantU, iDctU, cw, ch);
+  _trans->invDctTransform(iQuantV, iDctV, cw, ch);
+
+  for (int idx = 0; idx < chsize; idx++) {
+    recon[idx] = iDctU[idx];
+    recon[idx+chsize] = iDctV[idx];
+  }
+
+  double currPSNR = calcPSNR(currChroma, recon, chsize);
+  double currMSE = calcMSE(currChroma, recon, chsize);
+  cout << "PSNR (U): " << currPSNR << endl;
+  cout << "MSE (U): " << currMSE << endl;
+  currPSNR = calcPSNR(currChroma+chsize, recon+chsize, chsize);
+  currMSE = calcMSE(currChroma+chsize, recon+chsize, chsize);
+  cout << "PSNR (V): " << currPSNR << endl;
+  cout << "MSE (V): " << currMSE << endl;
+
 //  // visualize
 //  int* container[_frameSize>>1];
 //  memcpy(container, quantUFrame, chsize);
@@ -342,7 +340,7 @@ void EncTest::cavlcTest1() {
 //
 //  cv::imshow("Frame 1", mu);
 //  cv::waitKey(0);
-//}
+}
 
 
 
@@ -370,6 +368,7 @@ int main(int argc, char** argv)
     test->qTest2();
     test->cavlcEnc();
     test->cavlcTest1();
+    test->cavlcTest2();
 
   }
   return 0;

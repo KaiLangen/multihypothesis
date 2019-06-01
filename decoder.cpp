@@ -21,6 +21,23 @@
 
 using namespace std;
 
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+template<class T, class U>
+double calcMSE(T* img1, U* img2,int length)
+{
+  float MSE=0;
+  for(int i=0;i<length;i++)
+    {
+      MSE+=pow(float(img1[i]-img2[i]),float(2.0))/length;
+    }
+  return MSE;
+}
+template<class T, class U>
+double calcPSNR(T* img1, U* img2,int length)
+{
+  return 10*log10(255*255/calcMSE(img1, img2, length));
+}
 
 Decoder::Decoder(map<string, string> configMap)
 {
@@ -45,17 +62,6 @@ Decoder::Decoder(map<string, string> configMap)
   // Parse other configuration parameters
   _searchParam = atoi(configMap["searchWindowSize"].c_str());
   _searchBlock = atoi(configMap["blockSize"].c_str());
-
-  // compute quantStep
-  for (int j = 0; j < 4; j++) {
-    for (int i = 0; i < 4; i++) {
-      if (QuantMatrix[_qp][j][i] != 0) {
-        _quantStep[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_qp][j][i]);
-      }
-      else
-        _quantStep[j][i] = 1;
-    }
-  }
 
   decodeWzHeader();
 
@@ -96,6 +102,8 @@ void Decoder::initialize()
   _si    = new SideInformation(this, _model);
 
   _cavlc = new CavlcDec(this, 4);
+  _cavlcU = new CavlcDec(this, 4);
+  _cavlcV = new CavlcDec(this, 4);
 
   motionSearchInit(64);
 
@@ -112,6 +120,17 @@ void Decoder::initialize()
 # endif
 
   _ldpca = new LdpcaDec(ladderFile, this);
+
+  // compute quantStep
+  for (int j = 0; j < 4; j++) {
+    for (int i = 0; i < 4; i++) {
+      if (QuantMatrix[_qp][j][i] != 0) {
+        _quantStep[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_qp][j][i]);
+      }
+      else
+        _quantStep[j][i] = 1;
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -150,6 +169,7 @@ void Decoder::decodeWZframe()
   imgpel* currChroma    = _fb->getCurrChroma();
   imgpel* prevChroma    = _fb->getPrevChroma();
   imgpel* oriCurrFrame  = _fb->getorigFrame();
+  imgpel* oriCurrChroma  = _fb->getorigChroma();
   imgpel* imgSI         = _fb->getSideInfoFrame();
 
 // Luma Buffers
@@ -184,6 +204,7 @@ void Decoder::decodeWZframe()
   timeStart = clock();
   int cw = _frameWidth >> 1;
   int ch = _frameHeight >> 1;
+  int chsize = _frameSize >> 2;
 
   // Main loop
   // ---------------------------------------------------------------------------
@@ -205,24 +226,29 @@ void Decoder::decodeWZframe()
       // Read current frame from the original file (for comparison)
       fseek(fReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
       fread(oriCurrFrame, _frameSize, 1, fReadPtr);
+      fread(oriCurrChroma, _frameSize>>1, 1, fReadPtr);
 
       // ---------------------------------------------------------------------
       // STAGE 1 - Decode Chroma Data
       // ---------------------------------------------------------------------
-      int bitsU, bitsV;
       // size of integer buffer in bytes is: (frameSize >> 2) * 4 == frameSize
       memset(iDecodedU, 0, _frameSize);
       memset(iDecodedV, 0, _frameSize);
       memset(iQuantU, 0, _frameSize);
       memset(iQuantV, 0, _frameSize);
+      memset(iDctU, 0, _frameSize);
+      memset(iDctV, 0, _frameSize);
+      _numChnCodeBands = 0;
 
+      int bitsU = 0;
+      int bitsV = 0;
       // read bits from bitstream
-      for (int j = 0; j < ch; j += 4)
+      for (int j = 0; j < ch; j += 4) {
         for (int i = 0; i < cw; i += 4) {
-          bitsU = _cavlc->decode(iDecodedU, i, j, _bsU);
-          bitsV = _cavlc->decode(iDecodedV, i, j, _bsV);
+          bitsU += _cavlcU->decode(iDecodedU, i, j, _bsU);
+          bitsV += _cavlcV->decode(iDecodedV, i, j, _bsV);
         }
-
+      }
 # if HARDWARE_FLOW
       if (bitsU%32 != 0) {
         int dummy = 32 - (bitsU%32);
@@ -240,24 +266,25 @@ void Decoder::decodeWZframe()
       _trans->invDctTransform(iQuantV, iDctV, cw, ch);
 
       // add residual to reference frame
-      for (int idx = 0; idx < _frameSize>>2; idx++) {
-        currChroma[idx] = iDctU[idx];
-        currChroma[idx+(_frameSize>>2)] = iDctV[idx];
-//        currChroma[idx] = prevKeyChroma[idx] + iDctU[idx];
-//        currChroma[idx+(_frameSize>>2)] = 
-//          prevKeyChroma[idx+(_frameSize>>2)] + iDctV[idx];
+      for (int idx = 0; idx < chsize; idx++) {
+        currChroma[idx] = iDctU[idx] + prevKeyChroma[idx];
+        currChroma[idx+chsize] = iDctV[idx] + prevKeyChroma[idx+chsize];
       }
       
       // ---------------------------------------------------------------------
       // STAGE 2 - Create side information
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
-//      _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
-//
-//      float currPSNRSI0 = calcPSNR(oriCurrFrame, imgSI, _frameSize);
-//      cout << "side information quality " << currPSNRSI0 << endl;
+      _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
 
-      fwrite(oriCurrFrame, _frameSize, 1, fWritePtr);
+      double PSNRY = calcPSNR(oriCurrFrame, imgSI, chsize);
+      double PSNRU = calcPSNR(oriCurrChroma, currChroma, chsize);
+      double PSNRV = calcPSNR(oriCurrChroma+chsize, currChroma+chsize, chsize);
+      cout << "PSNR (Y): " << PSNRY << endl;
+      cout << "PSNR (U): " << PSNRU << endl;
+      cout << "PSNR (V): " << PSNRV << endl;
+
+      fwrite(imgSI, _frameSize, 1, fWritePtr);
       fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
 
       // copy curr buffers into prev buffer
@@ -755,22 +782,6 @@ void Decoder::getSkippedRecFrame(imgpel* imgPrevKey,imgpel* imgWZFrame, int* ski
           }
       }
     }
-}
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-double calcPSNR(unsigned char* img1,unsigned char* img2,int length)
-{
-  float PSNR;
-  float MSE=0;
-
-  for(int i=0;i<length;i++)
-    {
-      MSE+=pow(float(img1[i]-img2[i]),float(2.0))/length;
-    }
-  PSNR=10*log10(255*255/MSE);
-  //cout<<"PSNR: "<<PSNR<<" dB"<<endl;
-  return PSNR;
 }
 
 // -----------------------------------------------------------------------------

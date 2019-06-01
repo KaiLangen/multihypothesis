@@ -92,6 +92,7 @@ int CavlcDec::decode(int* iDCT, int ix, int iy, Bitstream* bs)
 
   for (int i = numCoeff-1; i >= 0; i--) {
     iCoeffNum += _mbs[index].iRun[i] + 1;
+    assert(iCoeffNum < 16);
 
     int x = ScanOrder[iCoeffNum][0];
     int y = ScanOrder[iCoeffNum][1];

@@ -65,6 +65,8 @@ private:
   SideInformation*  _si;
 
   CavlcDec*         _cavlc;
+  CavlcDec*         _cavlcU;
+  CavlcDec*         _cavlcV;
   LdpcaDec*         _ldpca;
 
   int               _maxValue[4][4];
@@ -85,8 +87,6 @@ int  beliefPropagation(int *ir, int *jc, int m, int n, int nzmax,
                        double *decoded);
 
 bool checkCRC(double * source,const int length,unsigned char crc);
-
-double calcPSNR(unsigned char* img1,unsigned char* img2,int length);
 
 int getSymbol(int len,int &curr_pos,char *buffer);
 

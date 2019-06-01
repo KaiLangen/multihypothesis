@@ -55,6 +55,8 @@ protected:
   Transform*        _trans;
 
   CavlcEnc*         _cavlc;
+  CavlcEnc*         _cavlcU;
+  CavlcEnc*         _cavlcV;
   LdpcaEnc*         _ldpca;
 
   int               _rcBitPlaneNum;
