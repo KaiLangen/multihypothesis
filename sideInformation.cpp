@@ -59,10 +59,11 @@ SideInformation::createSideInfo(imgpel* prevChroma, imgpel* currChroma,
   imgpel* refVChroma = new imgpel[_frameSize];
   imgpel* currUChroma = new imgpel[_frameSize];
   imgpel* currVChroma = new imgpel[_frameSize];
-  imgpel* rUPadded  = new imgpel[(_width+80)*(_height+80)];
-  imgpel* rVPadded  = new imgpel[(_width+80)*(_height+80)];
-  imgpel* cUPadded  = new imgpel[(_width+80)*(_height+80)];
-  imgpel* cVPadded  = new imgpel[(_width+80)*(_height+80)];
+  imgpel* rUPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* rVPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* cUPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* cVPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* prevPadded = new imgpel[(_width+80)*(_height+80)];
 
   int ww = _width>>1;
   int hh = _height>>1;
@@ -75,6 +76,7 @@ SideInformation::createSideInfo(imgpel* prevChroma, imgpel* currChroma,
   pad(currVChroma, cVPadded, 40);
   pad(refUChroma, rUPadded, 40);
   pad(refVChroma, rVPadded, 40);
+  pad(imgPrevKey, prevPadded, 40);
 
   // TODO: FIX ME TO WORK WITH PADDING
   ME(refUChroma, currUChroma, refVChroma, currVChroma);
@@ -83,7 +85,7 @@ SideInformation::createSideInfo(imgpel* prevChroma, imgpel* currChroma,
     spatialSmooth(rUPadded, rVPadded, cUPadded, cVPadded, _mvs, _blockSize, 40); 
 
   // TODO: FIX MC TO WORK WITH PADDING
-  MC(imgPrevKey, imgCurrFrame);
+  MC(prevPadded, imgCurrFrame, 40);
 }
 //#endif
 
@@ -331,7 +333,7 @@ const int SideInformation::_H[3][8][8] =
 
 
 void
-SideInformation::MC(imgpel* imgPrev, imgpel* imgDst)
+SideInformation::MC(imgpel* imgPrev, imgpel* imgDst, int padSize)
 {
   int cX, cY, mvX[3], mvY[3];
   int cand[3];
@@ -341,30 +343,31 @@ SideInformation::MC(imgpel* imgPrev, imgpel* imgDst)
     cY   = _mvs[i].iCy;
 
     // cand0 is the current block
-    mvX[0]  = cX + _mvs[i].iMvx;
-    mvY[0]  = cY + _mvs[i].iMvy;
+    mvX[0]  = cX + _mvs[i].iMvx + padSize;
+    mvY[0]  = cY + _mvs[i].iMvy + padSize;
     // cand1 is above or below
     if (cY == 0) {
-      mvX[1]  = cX + _mvs[i + _width / _blockSize].iMvx;
-      mvY[1]  = cY + _mvs[i + _width / _blockSize].iMvy;
+      mvX[1]  = cX + _mvs[i + _width / _blockSize].iMvx + padSize;
+      mvY[1]  = cY + _mvs[i + _width / _blockSize].iMvy + padSize;
     } else {
-      mvX[1]  = cX + _mvs[i - _width / _blockSize].iMvx;
-      mvY[1]  = cY + _mvs[i - _width / _blockSize].iMvy;
+      mvX[1]  = cX + _mvs[i - _width / _blockSize].iMvx + padSize;
+      mvY[1]  = cY + _mvs[i - _width / _blockSize].iMvy + padSize;
     }
     // cand2 is left or right
-    if (cX % _width == 0) {
-      mvX[2]  = cX + _mvs[i + 1].iMvx;
-      mvY[2]  = cY + _mvs[i + 1].iMvy;
+    if (cX == 0) {
+      mvX[2]  = cX + _mvs[i + 1].iMvx + padSize;
+      mvY[2]  = cY + _mvs[i + 1].iMvy + padSize;
     } else {
-      mvX[2]  = cX + _mvs[i - 1].iMvx;
-      mvY[2]  = cY + _mvs[i - 1].iMvy;
+      mvX[2]  = cX + _mvs[i - 1].iMvx + padSize;
+      mvY[2]  = cY + _mvs[i - 1].iMvy + padSize;
     }
 
     // average all 3 candidates
     for (int j = 0; j < _blockSize; j++)
       for (int k = 0; k < _blockSize; k++) {
         for(int c = 0; c < 3; c++)
-          cand[c] = _H[c][j][k] * imgPrev[mvX[c] + k + (mvY[c] + j) * _width];
+          cand[c] = _H[c][j][k] * imgPrev[mvX[c]+k+
+                                         (mvY[c]+j)*(2*padSize+_width)];
 
         imgDst[cX + k + (cY + j) * _width] =
           (cand[0] + cand[1] + cand[2] + 4) / 8;
@@ -374,7 +377,7 @@ SideInformation::MC(imgpel* imgPrev, imgpel* imgDst)
 #else 
 
 void
-SideInformation::MC(imgpel* imgPrev, imgpel* imgDst)
+SideInformation::MC(imgpel* imgPrev, imgpel* imgDst, int padSize)
 {
   int cX, cY, mvX, mvY;
   for (int i = 0; i < _nmv; i++) {
@@ -382,12 +385,12 @@ SideInformation::MC(imgpel* imgPrev, imgpel* imgDst)
     // get the frame that the motion vector references, then increment it
     cX   = _mvs[i].iCx;
     cY   = _mvs[i].iCy;
-    mvX  = cX + (_mvs[i].iMvx);
-    mvY  = cY + (_mvs[i].iMvy);
+    mvX  = cX + _mvs[i].iMvx + padSize;
+    mvY  = cY + _mvs[i].iMvy + padSize;
     
     for (int j = 0; j < _blockSize; j++) {
-      memcpy(imgDst + cX + (cY + j) * (_width),
-             imgPrev + mvX + (mvY + j) * (_width), 
+      memcpy(imgDst + cX + (cY + j) * _width,
+             imgPrev + mvX + (mvY + j) * (2*padSize+_width),
              _blockSize);
     }
   }

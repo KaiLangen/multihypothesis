@@ -29,14 +29,12 @@ private:
   void ME(imgpel* refFrameU, imgpel* currFrameU,
           imgpel* refFrameV, imgpel* currFrameV);
 
-  void MC(imgpel* imgPrev, imgpel* imgDst);
+  void MC(imgpel* imgPrev, imgpel* imgDst, int padSize);
 
   void spatialSmooth(imgpel* rU, imgpel* rV, imgpel* cU, imgpel* cV, mvinfo* varCandidate,
                      const int iBlockSize, const int iPadSize);
 
   void pad(imgpel* src, imgpel* dst, const int iPadSize);
-
-  bool isSkip(const int* skipMask, int start, int thresh);
 
   Codec*      _codec;
   CorrModel*  _model;

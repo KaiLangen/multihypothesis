@@ -281,6 +281,11 @@ void Decoder::decodeWZframe()
       // Predict from coincident Chroma
       _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
 
+      getSyndromeData();
+#     if SKIP_MODE
+      getSkippedRecFrame(prevKeyLuma, imgSI, _skipMask);
+#     endif
+
       double PSNRSI = calcPSNR(oriCurrFrame, imgSI, _frameSize);
       double PSNRU = calcPSNR(oriCurrChroma, currChroma, chsize);
       double PSNRV = calcPSNR(oriCurrChroma+chsize, currChroma+chsize, chsize);
@@ -509,7 +514,10 @@ int Decoder::getSyndromeData()
 
 # if SKIP_MODE
   decodedBits += decodeSkipMask();
+#else
+  memset(_skipMask, 0, _bitPlaneLength);
 # endif
+
 
 # if HARDWARE_FLOW
   bitCount = _bs->getBitCount() - bitCount;
