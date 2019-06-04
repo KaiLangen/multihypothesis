@@ -35,6 +35,7 @@ public:
 
   int  _searchParam;
   int  _searchBlock;
+  int  _spatialSmoothing;
   int* _skipMask;
 
 private:
@@ -42,7 +43,7 @@ private:
 
   void decodeWzHeader();
 
-  void parseKeyStat(const char* filename, double& rate, double& psnr, int& QP);
+  void parseKeyStat(const char* filename, double* rate, double* psnr);
 
   int getSyndromeData();
   int decodeSkipMask();

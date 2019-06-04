@@ -43,6 +43,7 @@ private:
   int _height;
   int _frameSize;
   int _blockSize;
+  int _ss;
   int _p;
   int _nmv;
 

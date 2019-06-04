@@ -27,15 +27,15 @@ public:
   void invDctTransform(int* src, T* dst, int w, int h);
 
   // Quantization
-  void quantization(int* src, int* dst, int w, int h);
+  void quantization(int* src, int* dst, bool isChr);
 
   // Inverse quantization
 # if SI_REFINEMENT
-  void invQuantization(int* src, int* dst, int* si, int offsetX, int offsetY, int w, int h);
-  void invQuantization(int* src, int* dst, int offsetX, int offsetY, int w, int h);
+  void invQuantization(int* src, int* dst, int* si, int offsetX, int offsetY, bool isChr);
+  void invQuantization(int* src, int* dst, int offsetX, int offsetY, bool isChr);
 # else
-  void invQuantization(int* src, int* dst, int* si, int w, int h);
-  void invQuantization(int* src, int* dst, int w, int h);
+  void invQuantization(int* src, int* dst, int* si, bool isChr);
+  void invQuantization(int* src, int* dst, bool isChr);
 # endif
 
 private:
@@ -49,15 +49,15 @@ private:
   void idct4x4(int* src, T* dst, int x, int y, int w);
 
   // Quantization
-  void quan4x4(int* src, int* dst, int x, int y, int w);
+  void quan4x4(int* src, int* dst, int x, int y, bool isChr);
 
   // Inverse quantization
 # if SI_REFINEMENT
-  void invquan4x4(int* src, int* dst, int* si, int x, int y, int i, int j, int w);
-  void invquan4x4(int* src, int* dst, int x, int y, int i, int j, int w);
+  void invquan4x4(int* src, int* dst, int* si, int x, int y, int i, int j, bool isChr);
+  void invquan4x4(int* src, int* dst, int x, int y, int i, int j, bool isChr);
 # else
-  void invquan4x4(int* src, int* dst, int* si, int x, int y, int w);
-  void invquan4x4(int* src, int* dst, int x, int y, int w);
+  void invquan4x4(int* src, int* dst, int* si, int x, int y, bool isChr);
+  void invquan4x4(int* src, int* dst, int x, int y, bool isChr);
 # endif
 
   //! Minimum mean square error

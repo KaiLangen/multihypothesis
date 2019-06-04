@@ -10,14 +10,14 @@
 // Macros for encoder/decoder
 #define WHOLEFLOW               1
 #define AC_QSTEP                1
-#define SKIP_MODE               1
+#define SKIP_MODE               0
 #define MODE_DECISION           1
 #define INTEGER_DCT             1
 #define HARDWARE_FLOW           1
 #define HARDWARE_LDPC           1
 #define HARDWARE_CMS            1
 #define HARDWARE_OPT            1
-#define OBMC                    0
+#define OBMC                    1
 
 // Macros for encoder only
 #ifdef ENCODER

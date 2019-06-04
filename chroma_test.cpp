@@ -27,6 +27,7 @@ public:
   void cavlcTest1();
   void cavlcTest2();
   void cavlcTestLoop();
+  void multiQPTest();
 
 private:
   int* chromaResidue = new int[_frameSize>>1];
@@ -151,11 +152,11 @@ void EncTest::qTest1() {
 
   _trans->dctTransform(chromaResidue, dctUFrame, cw, ch);
   _trans->dctTransform(chromaResidue + chsize, dctVFrame, cw, ch);
-  _trans->quantization(dctUFrame, quantUFrame, cw, ch);
-  _trans->quantization(dctVFrame, quantVFrame, cw, ch);
+  _trans->quantization(dctUFrame, quantUFrame, true);
+  _trans->quantization(dctVFrame, quantVFrame, true);
 
-  _trans->invQuantization(quantUFrame, iQuantU, cw, ch);
-  _trans->invQuantization(quantVFrame, iQuantV, cw, ch);
+  _trans->invQuantization(quantUFrame, iQuantU, true);
+  _trans->invQuantization(quantVFrame, iQuantV, true);
 
   // compute distortion
   double currPSNR = calcPSNR(dctUFrame, iQuantU, chsize);
@@ -185,11 +186,11 @@ void EncTest::qTest2() {
 
   _trans->dctTransform(chromaResidue, dctUFrame, cw, ch);
   _trans->dctTransform(chromaResidue + chsize, dctVFrame, cw, ch);
-  _trans->quantization(dctUFrame, quantUFrame, cw, ch);
-  _trans->quantization(dctVFrame, quantVFrame, cw, ch);
+  _trans->quantization(dctUFrame, quantUFrame, true);
+  _trans->quantization(dctVFrame, quantVFrame, true);
 
-  _trans->invQuantization(quantUFrame, iQuantU, cw, ch);
-  _trans->invQuantization(quantVFrame, iQuantV, cw, ch);
+  _trans->invQuantization(quantUFrame, iQuantU, true);
+  _trans->invQuantization(quantVFrame, iQuantV, true);
   _trans->invDctTransform(iQuantU, iDctU, cw, ch);
   _trans->invDctTransform(iQuantV, iDctV, cw, ch);
 
@@ -220,8 +221,8 @@ void EncTest::cavlcEnc() {
 
   _trans->dctTransform(chromaResidue, dctUFrame, cw, ch);
   _trans->dctTransform(chromaResidue + chsize, dctVFrame, cw, ch);
-  _trans->quantization(dctUFrame, quantUFrame, cw, ch);
-  _trans->quantization(dctVFrame, quantVFrame, cw, ch);
+  _trans->quantization(dctUFrame, quantUFrame, true);
+  _trans->quantization(dctVFrame, quantVFrame, true);
   _numChnCodeBands = 0;
   CavlcEnc* cavlcEncU = new CavlcEnc(this, 4);
   CavlcEnc* cavlcEncV = new CavlcEnc(this, 4);
@@ -257,8 +258,8 @@ void EncTest::cavlcTest1() {
 
   _trans->dctTransform(chromaResidue, dctUFrame, cw, ch);
   _trans->dctTransform(chromaResidue + chsize, dctVFrame, cw, ch);
-  _trans->quantization(dctUFrame, quantUFrame, cw, ch);
-  _trans->quantization(dctVFrame, quantVFrame, cw, ch);
+  _trans->quantization(dctUFrame, quantUFrame, true);
+  _trans->quantization(dctVFrame, quantVFrame, true);
 
   int bitsU_out = 0;
   int bitsV_out = 0;
@@ -308,8 +309,8 @@ void EncTest::cavlcTest2() {
   }
 
   // inverse Q & DCT
-  _trans->invQuantization(iDecodedU, iQuantU, cw, ch);
-  _trans->invQuantization(iDecodedV, iQuantV, cw, ch);
+  _trans->invQuantization(iDecodedU, iQuantU, true);
+  _trans->invQuantization(iDecodedV, iQuantV, true);
   _trans->invDctTransform(iQuantU, iDctU, cw, ch);
   _trans->invDctTransform(iQuantV, iDctV, cw, ch);
 
@@ -360,8 +361,8 @@ void EncTest::cavlcTestLoop() {
 
     _trans->dctTransform(chromaResidue, dctUFrame, cw, ch);
     _trans->dctTransform(chromaResidue+chsize, dctVFrame, cw, ch);
-    _trans->quantization(dctUFrame, quantUFrame, cw, ch);
-    _trans->quantization(dctVFrame, quantVFrame, cw, ch);
+    _trans->quantization(dctUFrame, quantUFrame, true);
+    _trans->quantization(dctVFrame, quantVFrame, true);
     int tempU = cavlcEncU->encode(quantUFrame, _bsU);
     int tempV = cavlcEncV->encode(quantVFrame, _bsV);
     cout << "Frame " << frIdx << " Bits (U): " << tempU << endl;
@@ -410,8 +411,8 @@ void EncTest::cavlcTestLoop() {
     cout << "Frame " << frIdx << " Bits (V): " << tempV << endl;
 
     // inverse Q & DCT
-    _trans->invQuantization(iDecodedU, iQuantU, cw, ch);
-    _trans->invQuantization(iDecodedV, iQuantV, cw, ch);
+    _trans->invQuantization(iDecodedU, iQuantU, true);
+    _trans->invQuantization(iDecodedV, iQuantV, true);
     _trans->invDctTransform(iQuantU, iDctU, cw, ch);
     _trans->invDctTransform(iQuantV, iDctV, cw, ch);
 
@@ -428,6 +429,54 @@ void EncTest::cavlcTestLoop() {
     currMSE = calcMSE(currChroma+chsize, recon+chsize, chsize);
     cout << "PSNR (V): " << currPSNR << endl;
     cout << "MSE (V): " << currMSE << endl;
+  }
+}
+
+void EncTest::multiQPTest() {
+  cout << "####################################" << endl; 
+  cout << " Residual encode/decode loop" << endl;
+  cout << "####################################" << endl; 
+  fseek(fReadPtr, _frameSize, SEEK_CUR);
+  fread(currChroma, _frameSize>>1, 1, fReadPtr);
+  for (int idx = 0; idx < _frameSize>>1; idx++)
+    chromaResidue[idx] = currChroma[idx] - prevChroma[idx];
+
+  for(int qp = 7; qp >= 0; qp--) {
+    _chrQp = qp;
+    computeQuantStep();
+    memset(dctUFrame, 0, _frameSize);
+    memset(dctVFrame, 0, _frameSize);
+    memset(quantUFrame, 0, _frameSize);
+    memset(quantVFrame, 0, _frameSize);
+    memset(iDecodedU, 0, _frameSize);
+    memset(iDecodedV, 0, _frameSize);
+    memset(iDctU, 0, _frameSize);
+    memset(iDctV, 0, _frameSize);
+    memset(iQuantU, 0, _frameSize);
+    memset(iQuantV, 0, _frameSize);
+
+    cout << " Encode:" << endl;
+    _trans->dctTransform(chromaResidue, dctUFrame, cw, ch);
+    _trans->dctTransform(chromaResidue+chsize, dctVFrame, cw, ch);
+    _trans->quantization(dctUFrame, quantUFrame, true);
+    _trans->quantization(dctVFrame, quantVFrame, true);
+
+    cout << " Decode:" << endl;
+    _trans->invQuantization(quantUFrame, iQuantU, true);
+    _trans->invQuantization(quantVFrame, iQuantV, true);
+    double currPSNR = calcPSNR(chromaResidue, iDctU, chsize);
+    double currMSE = calcMSE(chromaResidue, iDctU, chsize);
+    _trans->invDctTransform(iQuantU, iDctU, cw, ch);
+    _trans->invDctTransform(iQuantV, iDctV, cw, ch);
+
+    currPSNR = calcPSNR(chromaResidue, iDctU, chsize);
+    currMSE = calcMSE(chromaResidue, iDctU, chsize);
+    cout <<  "MSE (U): " << currMSE << endl;
+    cout << "PSNR (U): " << currPSNR << endl;
+    currPSNR = calcPSNR(chromaResidue+chsize, iDctV, chsize);
+    currMSE = calcMSE(chromaResidue+chsize, iDctV, chsize);
+    cout << "MSE (V): " << currMSE << endl;
+    cout << "PSNR (V): " << currPSNR << endl << endl;
   }
 }
 
@@ -453,11 +502,12 @@ int main(int argc, char** argv)
     test->transTest();
     test->qTest1();
     test->qTest2();
-    test->cavlcEnc();
-    test->cavlcTest1();
-    test->cavlcTest2();
+    test->multiQPTest();
 
-    test->cavlcTestLoop();
+//    test->cavlcEnc();
+//    test->cavlcTest1();
+//    test->cavlcTest2();
+//    test->cavlcTestLoop();
 
   }
   return 0;

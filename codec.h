@@ -17,6 +17,7 @@ public:
   int     getFrameHeight()     { return _frameHeight; };
   int     getBitPlaneLength()  { return _bitPlaneLength; };
   int     getQp()              { return _qp; };
+  int     getChrQp()              { return _chrQp; };
   int     getKeyQp()           { return _keyQp; };
   int     getNumChnCodeBands() { return _numChnCodeBands; };
 
@@ -24,8 +25,10 @@ public:
   double* getAlpha()           { return _alpha; };
   double* getSigma()           { return _sigma; };
 
-  int     getQuantMatrix(int qp, int x, int y) { return QuantMatrix[qp][y][x]; };
-  int     getQuantStep(int x, int y) { return _quantStep[y][x]; };
+  int     getQuantMatrix(int qp, int x, int y){return QuantMatrix[qp][y][x];};
+  int     getQuantStep(int x, int y, bool isChr)
+  { if (isChr) return _qStepChr[y][x];
+          else return _quantStep[y][x];};
 
   Bitstream* getBitstream() { return _bs; };
 
@@ -43,6 +46,7 @@ protected:
   const static int  HuffmanCodeLength[4][3][16];
 
   int               _quantStep[4][4];
+  int               _qStepChr[4][4];
 
   int               _frameWidth;
   int               _frameHeight;
@@ -50,6 +54,7 @@ protected:
   int               _numFrames;
   int               _bitPlaneLength;
   int               _qp;
+  int               _chrQp;
   int               _keyQp;
   int               _gopLevel;
   int               _gop;

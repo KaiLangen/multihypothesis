@@ -30,6 +30,7 @@ Encoder::Encoder(map<string, string> configMap)
   _files = FileManager::getManager();
 
   _qp          = atoi(configMap["WzQP"].c_str()); 
+  _chrQp       = atoi(configMap["ChrQP"].c_str()); 
   _keyQp       = atoi(configMap["KeyQP"].c_str());
   if (!strcmp(configMap["SequenceType"].c_str(), "CIF")) {
     _frameWidth  = 352;
@@ -147,6 +148,7 @@ void Encoder::encodeWzHeader()
   _bs->write(_frameWidth/16, 8);
   _bs->write(_frameHeight/16, 8);
   _bs->write(_qp, 8);
+  _bs->write(_chrQp, 8);
   _bs->write(_numFrames, 16);
   _bs->write(_gop, 8);
 }
@@ -217,7 +219,7 @@ void Encoder::encodeWzFrame()
       // ---------------------------------------------------------------------
       // STAGE 2 - Quantization
       // ---------------------------------------------------------------------
-      _trans->quantization(dctFrame, quantDctFrame, _frameWidth, _frameHeight);
+      _trans->quantization(dctFrame, quantDctFrame, false);
 
       // ---------------------------------------------------------------------
       // STAGE 3 - Mode decision
@@ -311,8 +313,8 @@ void Encoder::encodeWzFrame()
       memset(quantVFrame, 0, _frameSize>>2);
       _trans->dctTransform(chromaResidue, dctUFrame, cw, ch);
       _trans->dctTransform(chromaResidue+chsize, dctVFrame, cw, ch);
-      _trans->quantization(dctUFrame, quantUFrame, cw, ch);
-      _trans->quantization(dctVFrame, quantVFrame, cw, ch);
+      _trans->quantization(dctUFrame, quantUFrame, true);
+      _trans->quantization(dctVFrame, quantVFrame, true);
 
       // all bands are CAVLC coded, none channel coded
       _numChnCodeBands = 0;
@@ -330,8 +332,6 @@ void Encoder::encodeWzFrame()
         bitsV += dummy;
       }
 # endif // HARDWARE_FLOW
-      cout << bitsU << " Chroma bits (U)" << endl;
-      cout << bitsV << " Chroma bits (V)" << endl;
     } // Finish encoding the WZ frame
   }
 
@@ -376,12 +376,23 @@ void Encoder::computeQuantStep()
 {
   for (int j = 0; j < 4; j++) {
     for (int i = 0; i < 4; i++) {
-      if (QuantMatrix[_qp][j][i] != 0) {
+      // Luma
+      if (QuantMatrix[_qp][j][i] != 0)
         _quantStep[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_qp][j][i]);
-      }
       else
         _quantStep[j][i] = 1;
+
+      // Chroma
+      if (QuantMatrix[_chrQp][j][i] != 0) {
+        _qStepChr[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_chrQp][j][i]);
+        cout << _qStepChr[j][i] << " ";
+      }
+      else {
+        _qStepChr[j][i] = 1;
+        cout << _qStepChr[j][i] << " ";
+      }
     }
+    cout << endl;
   }
 }
 

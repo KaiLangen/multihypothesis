@@ -131,7 +131,7 @@ double CorrModel::getSoftInput(int* si,int* skipMask,int iCurrPos,int *iDecoded,
     for(int i=0;i<iWidth/4;i++)
     {
       iIndex=i+j*(iWidth/4);
-      iQuantSize=_codec->getQuantStep(x, y);
+      iQuantSize=_codec->getQuantStep(x, y, false);
       iBitLength= _codec->getQuantMatrix(iQP, x, y);
 
       if(iMode==2)
@@ -221,7 +221,7 @@ void CorrModel::correlationNoiseModeling(imgpel *imgMCFoward,imgpel* imgMCBackwa
         {
           iIndex=(x+i)+(y+j)*iWidth;
           double d=fabs((double)residue_b[iIndex])-dAverage[x+y*4];
-          int iQuantStep=_codec->getQuantStep(x, y);
+          int iQuantStep=_codec->getQuantStep(x, y, false);
           if(d*d<=dSigma[x+y*4])
           {
             dAlpha[iIndex]=sqrt(2/(dSigma[x+y*4]+0.1*iQuantStep*iQuantStep));

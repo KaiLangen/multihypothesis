@@ -46,6 +46,7 @@ SideInformation::SideInformation(Codec* codec, CorrModel* model)
   _blockSize = static_cast<Decoder*>(_codec)->_searchBlock;
 #endif
   _p         = static_cast<Decoder*>(_codec)->_searchParam;
+  _ss        = static_cast<Decoder*>(_codec)->_spatialSmoothing;
   _nmv       = _width * _height / (_blockSize * _blockSize);
   _mvs       = new mvinfo[_nmv];
 }
@@ -78,13 +79,11 @@ SideInformation::createSideInfo(imgpel* prevChroma, imgpel* currChroma,
   pad(refVChroma, rVPadded, 40);
   pad(imgPrevKey, prevPadded, 40);
 
-  // TODO: FIX ME TO WORK WITH PADDING
   ME(refUChroma, currUChroma, refVChroma, currVChroma);
-  //copy mv
-  for (int iter = 0; iter < 7; iter++) 
+  
+  for (int iter = 0; iter < _ss; iter++) 
     spatialSmooth(rUPadded, rVPadded, cUPadded, cVPadded, _mvs, _blockSize, 40); 
 
-  // TODO: FIX MC TO WORK WITH PADDING
   MC(prevPadded, imgCurrFrame, 40);
 }
 //#endif
