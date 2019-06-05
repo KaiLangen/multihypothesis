@@ -35,7 +35,7 @@ public:
 
   int  _searchParam;
   int  _searchBlock;
-  int  _MEMode;
+  int  _spatialSmoothing;
   int* _skipMask;
 
 private:
@@ -43,7 +43,7 @@ private:
 
   void decodeWzHeader();
 
-  void parseKeyStat(const char* filename, double& rate, double& psnr, int& QP);
+  void parseKeyStat(const char* filename, double* rate, double* psnr);
 
   int getSyndromeData();
   int decodeSkipMask();
@@ -66,15 +66,14 @@ private:
   SideInformation*  _si;
 
   CavlcDec*         _cavlc;
+  CavlcDec*         _cavlcU;
+  CavlcDec*         _cavlcV;
   LdpcaDec*         _ldpca;
 
   int               _maxValue[4][4];
 
-# if RESIDUAL_CODING | MODE_DECISION
   int               _rcBitPlaneNum;
-  int*              _rcList;
   int               _rcQuantMatrix[4][4];
-# endif
 
   int*              _spiralSearchX;
   int*              _spiralSearchY;
@@ -89,8 +88,6 @@ int  beliefPropagation(int *ir, int *jc, int m, int n, int nzmax,
                        double *decoded);
 
 bool checkCRC(double * source,const int length,unsigned char crc);
-
-double calcPSNR(unsigned char* img1,unsigned char* img2,int length);
 
 int getSymbol(int len,int &curr_pos,char *buffer);
 

@@ -1,0 +1,6 @@
+# TODO List
+- Implement Chroma Enc/Dec
+- Get ME/MC to work with padding (Maybe not ME???)
+- Look at using only key-frames for residual coding, to reduce error drift!
+- Turn channel coding online
+- Hierarchical ME / sub-pel ME

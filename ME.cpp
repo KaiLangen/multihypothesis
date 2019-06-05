@@ -193,41 +193,18 @@ SideInformation::ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
     mv.SAD = mincost;
 }
 
-bool SideInformation::isSkip(const int* skipMask, int start, int thresh) {
-  int skipCount = 0;
-  int wSkipOffset = _width / 4;
-  for (int y = 0; y < _blockSize/4; y++)
-    for (int x = 0; x < _blockSize/4; x++)
-      skipCount += skipMask[start+x+y*wSkipOffset];
-
-  if (skipCount > thresh) return true;
-  else return false;
-
-}
-
 void
 SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
                     imgpel* refFrameV, imgpel* currFrameV)
 {
   int idx;
   int cnt = 0;
-  int wSkipOffset = _width / 4;
-  int* skipMask = static_cast<Decoder*>(_codec)->_skipMask;
   /* for every block, search each reference frame and find the best matching block. */
   /* TODO: Would be more computationally efficient to have refs be the outter loop */
   for (int y = 0; y <= _height - _blockSize; y += _blockSize) {
     for (int x = 0; x <= _width - _blockSize; x += _blockSize) {
-      /* check skipmask subblocks */
-      int skipStart = (y*4)*wSkipOffset + (x*4);
-      if (isSkip(skipMask, skipStart, _blockSize/4+1)) {
-        _mvs[cnt].iCx = x;
-        _mvs[cnt].iCy = y;
-        _mvs[cnt].iMvx = 0;
-        _mvs[cnt].iMvy = 0;
-      } else {
-        idx = y * _width + x;
-        ES(currFrameU, currFrameV, refFrameU, refFrameV, _mvs[cnt], _p, idx);
-      }
+      idx = y * _width + x;
+      ES(currFrameU, currFrameV, refFrameU, refFrameV, _mvs[cnt], _p, idx);
       cnt++;
     }
   }

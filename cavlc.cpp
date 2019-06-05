@@ -140,13 +140,10 @@ Cavlc::Cavlc(Codec* codec, int blockSize)
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-int Cavlc::getNumNonzero(int x, int y)
+int Cavlc::getNumNonzero(int x, int y, int width)
 {
-  int width = _codec->getFrameWidth();
-
   int mbX = x / _blockSize;
   int mbY = y / _blockSize;
-
   return _mbs[mbX + mbY*(width/_blockSize)].nnz[0][0];
 }
 

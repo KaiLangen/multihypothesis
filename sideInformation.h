@@ -14,10 +14,8 @@ public:
 
   void createSideInfo(imgpel* prevChroma, imgpel* currChroma,
                       imgpel* imgPrevKey, imgpel* imgCurrFrame);
-# if RESIDUAL_CODING
   void getResidualFrame(imgpel* bRefFrame, imgpel* currFrame, int* residue);
   void getRecFrame(imgpel *imgBReference, int *iResidue, imgpel *imgRec);
-# endif
 
 private:
   void lowpassFilter(imgpel* src, imgpel* dst, const int boxSize);
@@ -31,14 +29,12 @@ private:
   void ME(imgpel* refFrameU, imgpel* currFrameU,
           imgpel* refFrameV, imgpel* currFrameV);
 
-  void MC(imgpel* imgPrev, imgpel* imgDst);
+  void MC(imgpel* imgPrev, imgpel* imgDst, int padSize);
 
   void spatialSmooth(imgpel* rU, imgpel* rV, imgpel* cU, imgpel* cV, mvinfo* varCandidate,
                      const int iBlockSize, const int iPadSize);
 
   void pad(imgpel* src, imgpel* dst, const int iPadSize);
-
-  bool isSkip(const int* skipMask, int start, int thresh);
 
   Codec*      _codec;
   CorrModel*  _model;
@@ -47,8 +43,8 @@ private:
   int _height;
   int _frameSize;
   int _blockSize;
+  int _ss;
   int _p;
-  int _MEMode;
   int _nmv;
 
 # if OBMC

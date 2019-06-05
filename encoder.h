@@ -23,13 +23,10 @@ public:
   void encodeKeyFrame();
   void encodeWzFrame();
 
-private:
+protected:
   void initialize();
 
   void encodeWzHeader();
-
-  void computeResidue(int* residue);
-  int  computeSad(imgpel* blk1, imgpel* blk2, int width1, int width2, int step1, int step2, int blockSize);
 
   void updateMaxValue(int* block);
 
@@ -48,7 +45,7 @@ private:
 
   void report();
 
-private:
+protected:
   const static int  Scale[3][8];
 
   FileManager*      _files;
@@ -58,12 +55,12 @@ private:
   Transform*        _trans;
 
   CavlcEnc*         _cavlc;
+  CavlcEnc*         _cavlcU;
+  CavlcEnc*         _cavlcV;
   LdpcaEnc*         _ldpca;
 
-# if RESIDUAL_CODING | MODE_DECISION
   int               _rcBitPlaneNum;
   int               _rcQuantMatrix[4][4];
-# endif
 
   int               _maxValue[4][4];
   int*              _skipMask;
