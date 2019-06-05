@@ -485,10 +485,11 @@ void EncTest::multiQPTest() {
 // -----------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
-  if (argc != 2) {
+  if (argc != 3) {
     cerr << endl;
     cerr << "Usage: ./tester ";
-    cerr << "[config file]";
+    cerr << "[config file] ";
+    cerr << "[input video]";
     cerr << endl;
   }
   else {
@@ -496,7 +497,8 @@ int main(int argc, char** argv)
     cout << "DVC2.0 - open source distributed video coding tool" << endl;
     cout << endl;
 
-    map<string, string> configMap = readConfig(argv[1]);
+    map<string, string> configMap = readConfig(argv[1], true);
+    configMap["SrcFile"] = argv[2];
     EncTest* test = new EncTest(configMap);
 
     test->transTest();

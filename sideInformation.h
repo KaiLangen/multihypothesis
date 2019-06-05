@@ -2,6 +2,8 @@
 #ifndef DECODER_INC_SIDEINFORMATION_H
 #define DECODER_INC_SIDEINFORMATION_H
 
+#include <map>
+
 #include "defs.h"
 
 class CorrModel;
@@ -10,7 +12,8 @@ class Codec;
 class SideInformation
 {
 public:
-  SideInformation(Codec* codec, CorrModel* model);
+  SideInformation(Codec* codec, CorrModel* model,
+                  std::map<std::string, std::string> configMap);
 
   void createSideInfo(imgpel* prevChroma, imgpel* currChroma,
                       imgpel* imgPrevKey, imgpel* imgCurrFrame);

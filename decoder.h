@@ -25,7 +25,7 @@ public:
   Decoder(map<string, string> configMap);
   ~Decoder() { /* TODO Remember to free memory space */ };
 
-  void decodeWZframe();
+  void decodeWzFrame();
 
   int* getSpiralSearchX()     { return _spiralSearchX; };
   int* getSpiralSearchY()     { return _spiralSearchY; };
@@ -33,9 +33,6 @@ public:
   int* getSpiralHpelSearchY() { return _spiralHpelSearchY; };
   int* getSkipMask()          { return _skipMask; };
 
-  int  _searchParam;
-  int  _searchBlock;
-  int  _spatialSmoothing;
   int* _skipMask;
 
 private:

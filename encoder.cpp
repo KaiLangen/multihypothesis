@@ -46,7 +46,6 @@ Encoder::Encoder(map<string, string> configMap)
   _files->addFile("src", configMap["SrcFile"])->openFile("rb");
   _files->addFile("wz",  wzFileName)->openFile("wb");
   _files->addFile("key", configMap["KeyFile"]);
-  _files->addFile("chroma", configMap["ChromaFile"]);
 
   string ubs = wzFileName.substr(0, wzFileName.find(".bin")) + ".u.bin";
   string vbs = wzFileName.substr(0, wzFileName.find(".bin")) + ".v.bin";

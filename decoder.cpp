@@ -59,14 +59,37 @@ Decoder::Decoder(map<string, string> configMap)
   _bsU = new Bitstream(1024, _files->getFile("wzU")->getFileHandle());
   _bsV = new Bitstream(1024, _files->getFile("wzV")->getFileHandle());
 
-  // Parse other configuration parameters
-  _searchParam = atoi(configMap["SearchWindowSize"].c_str());
-  _searchBlock = atoi(configMap["BlockSize"].c_str());
-  _spatialSmoothing = atoi(configMap["SpatialSmoothing"].c_str());
-
+  // read height, width, gop, and qp's from header
   decodeWzHeader();
 
+  // Parse other configuration parameters
+  _trans = new Transform(this);
+  _model = new CorrModel(this, _trans);
+  _si    = new SideInformation(this, _model, configMap);
+
   initialize();
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+void Decoder::decodeWzHeader()
+{
+  _frameWidth   = _bs->read(8) * 16;
+  _frameHeight  = _bs->read(8) * 16;
+  _qp           = _bs->read(8);
+  _chrQp        = _bs->read(8);
+  _numFrames    = _bs->read(16);
+  _gop          = _bs->read(8);
+
+  cout << "--------------------------------------------------" << endl;
+  cout << "WZ frame parameters" << endl;
+  cout << "--------------------------------------------------" << endl;
+  cout << "Width:  " << _frameWidth << endl;
+  cout << "Height: " << _frameHeight << endl;
+  cout << "Frames: " << _numFrames << endl;
+  cout << "QP:     " << _qp << endl;
+  cout << "GOP:    " << _gop << endl;
+  cout << "--------------------------------------------------" << endl << endl;
 }
 
 // -----------------------------------------------------------------------------
@@ -96,11 +119,6 @@ void Decoder::initialize()
   _skipMask         = new int[_bitPlaneLength];
 
   _fb = new FrameBuffer(_frameWidth, _frameHeight, _gop);
-
-  _trans = new Transform(this);
-
-  _model = new CorrModel(this, _trans);
-  _si    = new SideInformation(this, _model);
 
   _cavlc = new CavlcDec(this, 4);
   _cavlcU = new CavlcDec(this, 4);
@@ -141,29 +159,7 @@ void Decoder::initialize()
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-void Decoder::decodeWzHeader()
-{
-  _frameWidth   = _bs->read(8) * 16;
-  _frameHeight  = _bs->read(8) * 16;
-  _qp           = _bs->read(8);
-  _chrQp        = _bs->read(8);
-  _numFrames    = _bs->read(16);
-  _gop          = _bs->read(8);
-
-  cout << "--------------------------------------------------" << endl;
-  cout << "WZ frame parameters" << endl;
-  cout << "--------------------------------------------------" << endl;
-  cout << "Width:  " << _frameWidth << endl;
-  cout << "Height: " << _frameHeight << endl;
-  cout << "Frames: " << _numFrames << endl;
-  cout << "QP:     " << _qp << endl;
-  cout << "GOP:    " << _gop << endl;
-  cout << "--------------------------------------------------" << endl << endl;
-}
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-void Decoder::decodeWZframe()
+void Decoder::decodeWzFrame()
 {
   //double dPSNRAvg=0;
   double dPSNRUAvg=0;

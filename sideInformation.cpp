@@ -33,22 +33,23 @@ void SideInformation::lowpassFilter(imgpel* src, imgpel* dst, int boxSize)
     }
 }
 
-SideInformation::SideInformation(Codec* codec, CorrModel* model)
+SideInformation::SideInformation(Codec* codec, CorrModel* model,
+                                 std::map<std::string, std::string> configMap)
 {
-  _codec     = codec; 
-  _model     = model;
-  _width     = _codec->getFrameWidth();
-  _height    = _codec->getFrameHeight();
+  _codec = codec;
+  _model = model;
+  _width = _codec->getFrameWidth();
+  _height = _codec->getFrameHeight();
   _frameSize = _width * _height;
 #if OBMC
   _blockSize = 8;
 #else
-  _blockSize = static_cast<Decoder*>(_codec)->_searchBlock;
+  _blockSize = atoi(configMap["BlockSize"].c_str());
 #endif
-  _p         = static_cast<Decoder*>(_codec)->_searchParam;
-  _ss        = static_cast<Decoder*>(_codec)->_spatialSmoothing;
-  _nmv       = _width * _height / (_blockSize * _blockSize);
-  _mvs       = new mvinfo[_nmv];
+  _p = atoi(configMap["SearchWindowSize"].c_str());
+  _ss = atoi(configMap["SpatialSmoothing"].c_str());
+  _nmv = _width * _height / (_blockSize * _blockSize);
+  _mvs = new mvinfo[_nmv];
 }
 
 void

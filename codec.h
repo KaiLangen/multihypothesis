@@ -56,7 +56,6 @@ protected:
   int               _qp;
   int               _chrQp;
   int               _keyQp;
-  int               _gopLevel;
   int               _gop;
   int               _numChnCodeBands;
 
@@ -72,7 +71,7 @@ protected:
   Bitstream*        _bsV;
 };
 
-std::map<std::string, std::string>& readConfig(std::string filename);
+std::map<std::string,std::string>& readConfig(std::string filename,bool isEnc);
 
 #endif // COMMON_INC_CODEC_H
 
