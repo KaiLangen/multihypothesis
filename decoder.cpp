@@ -274,8 +274,8 @@ void Decoder::decodeWzFrame()
 
       _trans->invQuantization(iDecodedU, iQuantU, true);
       _trans->invQuantization(iDecodedV, iQuantV, true);
-      _trans->invDctTransform(iQuantU, iDctU, cw, ch);
-      _trans->invDctTransform(iQuantV, iDctV, cw, ch);
+      _trans->invDctTransform(iQuantU, iDctU, true);
+      _trans->invDctTransform(iQuantV, iDctV, true);
 
       // add residual to reference frame
       for (int idx = 0; idx < chsize; idx++) {
@@ -311,14 +311,14 @@ void Decoder::decodeWzFrame()
 
       double dTotalRate = (double)tmp/1024/8;
 
-      _trans->dctTransform(imgSI, iDCT, _frameWidth, _frameHeight);
+      _trans->dctTransform(imgSI, iDCT, false);
 
       memset(iDecoded, 0, _frameSize*4);
       memset(iDecodedInvQ, 0, _frameSize*4);
 
       _si->getResidualFrame(prevKeyLuma, imgSI, iDCTBuffer);
 
-      _trans->dctTransform(iDCTBuffer, iDCTResidual, _frameWidth, _frameHeight);
+      _trans->dctTransform(iDCTBuffer, iDCTResidual, false);
       _trans->quantization(iDCTResidual, iDCTQ, false);
 
       int iOffset = 0;
@@ -337,7 +337,7 @@ void Decoder::decodeWzFrame()
       }
 
       _trans->invQuantization(iDecoded, iDecodedInvQ, iDCTResidual, false);
-      _trans->invDctTransform(iDecodedInvQ, iDCTBuffer, _frameWidth, _frameHeight);
+      _trans->invDctTransform(iDecodedInvQ, iDCTBuffer, false);
 
       _si->getRecFrame(prevKeyLuma, iDCTBuffer, currLuma);
 #     if SKIP_MODE

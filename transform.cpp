@@ -38,12 +38,20 @@ const int Transform::IdctShift[4][4] = {
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-template void Transform::dctTransform(int*    src, int* dst, int w, int h);
-template void Transform::dctTransform(imgpel* src, int* dst, int w, int h);
+template void Transform::dctTransform(int*    src, int* dst, bool isChr);
+template void Transform::dctTransform(imgpel* src, int* dst, bool isChr);
 
 template <typename T, typename U>
-void Transform::dctTransform(T* src, U* dst, int width, int height)
+void Transform::dctTransform(T* src, U* dst, bool isChr)
 {
+  int width, height;
+  if (isChr) {
+    width = _codec->getFrameWidth()>>1;
+    height = _codec->getFrameHeight()>>1;
+  } else {
+    width = _codec->getFrameWidth();
+    height = _codec->getFrameHeight();
+  }
   int** srcBuffer = new int*[4];
   int** dstBuffer = new int*[4];
   for (int i = 0; i < 4; i++) {
@@ -81,8 +89,16 @@ void Transform::dctTransform(T* src, U* dst, int width, int height)
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-void Transform::dctTransform(float* src, float* dst, int width, int height)
+void Transform::dctTransform(float* src, float* dst, bool isChr)
 {
+  int width, height;
+  if (isChr) {
+    width = _codec->getFrameWidth()>>1;
+    height = _codec->getFrameHeight()>>1;
+  } else {
+    width = _codec->getFrameWidth();
+    height = _codec->getFrameHeight();
+  }
   for (int y = 0; y < height; y += 4)
     for (int x = 0; x < width; x += 4)
       dct4x4(src, dst, x, y, width);
@@ -184,12 +200,20 @@ void Transform::forward4x4(int** src, int** dst, int x, int y)
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-template void Transform::invDctTransform(int* src, int* dst, int w, int h);
-template void Transform::invDctTransform(int* src, imgpel* dst, int w, int h);
+template void Transform::invDctTransform(int* src, int* dst, bool isChr);
+template void Transform::invDctTransform(int* src, imgpel* dst, bool isChr);
 
 template <typename T>
-void Transform::invDctTransform(int* src, T* dst, int width, int height)
+void Transform::invDctTransform(int* src, T* dst, bool isChr)
 {
+  int width, height;
+  if (isChr) {
+    width = _codec->getFrameWidth()>>1;
+    height = _codec->getFrameHeight()>>1;
+  } else {
+    width = _codec->getFrameWidth();
+    height = _codec->getFrameHeight();
+  }
   int** srcBuffer = new int*[4];
   int** dstBuffer = new int*[4];
 

@@ -193,7 +193,7 @@ void CorrModel::correlationNoiseModeling(imgpel *imgMCFoward,imgpel* imgMCBackwa
     {
       residue[i+j*iWidth]=float(imgMCFoward[i+j*iWidth]-imgMCBackward[i+j*iWidth])/2;
     }
-  _trans->dctTransform(residue,residue_b, iWidth, iHeight);
+  _trans->dctTransform(residue,residue_b, false);
 
   for(int j=0;j<4;j++)
     for(int i=0;i<4;i++)

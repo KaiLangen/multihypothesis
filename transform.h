@@ -15,16 +15,16 @@ public:
 
   // DCT
   template <typename T, typename U>
-  void dctTransform(T* src, U* dst, int w, int h);
+  void dctTransform(T* src, U* dst, bool isChr);
 
-  void dctTransform(float* src, float* dst, int w, int h);
+  void dctTransform(float* src, float* dst, bool isChr);
 
   template <typename T, typename U>
   void dct4x4(T* src, U* dst, int x, int y, int w);
 
   // Inverse DCT
   template <typename T>
-  void invDctTransform(int* src, T* dst, int w, int h);
+  void invDctTransform(int* src, T* dst, bool isChr);
 
   // Quantization
   void quantization(int* src, int* dst, bool isChr);

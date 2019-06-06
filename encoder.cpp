@@ -175,8 +175,6 @@ void Encoder::encodeWzFrame()
   int*    dctVFrame     = new int[_frameSize>>2];
   int*    quantUFrame   = new int[_frameSize>>2];
   int*    quantVFrame   = new int[_frameSize>>2];
-  int cw = _frameWidth>>1;
-  int ch = _frameHeight>>1;
   int chsize = _frameSize>>2;
 
   timeStart = clock();
@@ -211,7 +209,7 @@ void Encoder::encodeWzFrame()
       for (int idx = 0; idx < _frameSize; idx++)
         residue[idx] = currFrame[idx] - prevFrame[idx];
 
-      _trans->dctTransform(residue, dctFrame, _frameWidth, _frameHeight);
+      _trans->dctTransform(residue, dctFrame, false);
 
       updateMaxValue(dctFrame);
 
@@ -305,8 +303,8 @@ void Encoder::encodeWzFrame()
       memset(dctVFrame, 0, _frameSize>>2);
       memset(quantUFrame, 0, _frameSize>>2);
       memset(quantVFrame, 0, _frameSize>>2);
-      _trans->dctTransform(chromaResidue, dctUFrame, cw, ch);
-      _trans->dctTransform(chromaResidue+chsize, dctVFrame, cw, ch);
+      _trans->dctTransform(chromaResidue, dctUFrame, true);
+      _trans->dctTransform(chromaResidue+chsize, dctVFrame, true);
       _trans->quantization(dctUFrame, quantUFrame, true);
       _trans->quantization(dctVFrame, quantVFrame, true);
 
