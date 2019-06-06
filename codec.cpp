@@ -170,32 +170,32 @@ readConfig(string filename, bool isEnc)
     // check the validity of inputs
     if (isEnc) { // encoder specific inputs
       int qp = atoi(configMap["WzQP"].c_str());
-      if (qp <= 0 || qp >= 8)
+      if (qp < 0 || qp >= 8)
         throw invalid_argument("Invalid quantization paramater");
       int chrQp = atoi(configMap["ChrQP"].c_str());
-      if (chrQp <= 0 || chrQp >= 8)
+      if (chrQp < 0 || chrQp >= 8)
         throw invalid_argument("Invalid Chroma QP");
       int keyQp = atoi(configMap["KeyQP"].c_str());
-      if (keyQp <= 0 || keyQp >= 52)
+      if (keyQp < 0 || keyQp >= 52)
         throw invalid_argument("Invalid Key-frame QP");
       int numFrames = atoi(configMap["NumFrames"].c_str());
       if (numFrames <= 0)
         throw invalid_argument("Invalid number of frames");
       int gop = atoi(configMap["Gop"].c_str());
-      if (gop <= 0)
+      if (gop < 2)
         throw invalid_argument("Invalid GOP size");
       string seqType = configMap["SequenceType"];
       if ((seqType.compare("CIF") != 0) && (seqType.compare("QCIF") != 0))
         throw invalid_argument("Invalid GOP size");
     } else { // decoder specific inputs
       int blockSize = atoi(configMap["BlockSize"].c_str());
-      if (blockSize <= 0 || blockSize > 32)
+      if (blockSize < 8 || blockSize > 32)
         throw invalid_argument("Invalid search-block size");
       int searchWindow = atoi(configMap["SearchWindowSize"].c_str());
-      if (searchWindow <= 0 || searchWindow > 32)
+      if (searchWindow < 0 || searchWindow > 32)
         throw invalid_argument("Invalid search-window size");
       int spatialSmoothing = atoi(configMap["SearchWindowSize"].c_str());
-      if (spatialSmoothing <= 0)
+      if (spatialSmoothing < 0)
         throw invalid_argument("Invalid spatial smoothing parameter");
       if (FILE *file = fopen(configMap["WZFile"].c_str(), "r"))
         fclose(file);

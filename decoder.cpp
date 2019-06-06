@@ -161,7 +161,7 @@ void Decoder::initialize()
 // -----------------------------------------------------------------------------
 void Decoder::decodeWzFrame()
 {
-  //double dPSNRAvg=0;
+  double dPSNRAvg=0;
   double dPSNRUAvg=0;
   double dPSNRVAvg=0;
   double dPSNRSIAvg=0;
@@ -172,7 +172,7 @@ void Decoder::decodeWzFrame()
   clock_t timeStart, timeEnd;
   double cpuTime;
 
-//  imgpel* currLuma      = _fb->getCurrFrame();
+  imgpel* currLuma      = _fb->getCurrFrame();
   imgpel* prevLuma      = _fb->getPrevFrame();
   imgpel* currChroma    = _fb->getCurrChroma();
   imgpel* prevChroma    = _fb->getPrevChroma();
@@ -181,12 +181,12 @@ void Decoder::decodeWzFrame()
   imgpel* imgSI         = _fb->getSideInfoFrame();
 
 // Luma Buffers
-//  int* iDCT             = _fb->getDctFrame();
-//  int* iDCTQ            = _fb->getQuantDctFrame();
-//  int* iDecoded         = _fb->getDecFrame();
-//  int* iDecodedInvQ     = _fb->getInvQuantDecFrame();
-//  int* iDCTBuffer       = new int [_frameSize];
-//  int* iDCTResidual     = new int [_frameSize];
+  int* iDCT             = _fb->getDctFrame();
+  int* iDCTQ            = _fb->getQuantDctFrame();
+  int* iDecoded         = _fb->getDecFrame();
+  int* iDecodedInvQ     = _fb->getInvQuantDecFrame();
+  int* iDCTBuffer       = new int [_frameSize];
+  int* iDCTResidual     = new int [_frameSize];
 
 // Chroma Buffers
   imgpel* prevKeyLuma   = new imgpel[_frameSize];
@@ -198,7 +198,7 @@ void Decoder::decodeWzFrame()
   int* iQuantU          = new int[_frameSize>>2];
   int* iQuantV          = new int[_frameSize>>2];
 
-//  int x,y;
+  int x,y;
   double totalrate=0;
   double chromarate=0;
   double dKeyCodingRate[3] = {0., 0., 0.};
@@ -287,33 +287,21 @@ void Decoder::decodeWzFrame()
       // STAGE 2 - Create side information
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
-//      _si->createSideInfo(prevChroma, oriCurrChroma, prevLuma, imgSI);
       _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
 
-#     if SKIP_MODE
-      getSyndromeData();
-      getSkippedRecFrame(prevKeyLuma, imgSI, _skipMask);
-#     endif
-
-      dPSNRSIAvg += calcPSNR(oriCurrFrame, imgSI, _frameSize);
+      float currPSNRSI = calcPSNR(oriCurrFrame, imgSI, _frameSize);
+      cout << "PSNR SI: " << currPSNRSI << endl;
+      //float currPSNR = calcPSNR(oriCurrFrame, currLuma, _frameSize);
+      //dPSNRAvg += currPSNR;
+      dPSNRSIAvg += currPSNRSI;
       dPSNRUAvg += calcPSNR(oriCurrChroma, currChroma, chsize);
       dPSNRVAvg += calcPSNR(oriCurrChroma+chsize, currChroma+chsize, chsize);
       dPSNRPrevSIAvg += calcPSNR(oriCurrFrame, prevKeyLuma, _frameSize);
       dPSNRPrevUAvg += calcPSNR(oriCurrChroma, prevKeyChroma, chsize);
       dPSNRPrevVAvg += calcPSNR(oriCurrChroma+chsize,
                                 prevKeyChroma+chsize, chsize);
-
-      fwrite(imgSI, _frameSize, 1, fWritePtr);
-      fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
-
-      // copy curr buffers into prev buffer
-      memcpy(prevLuma, imgSI, _frameSize);
-      memcpy(prevChroma, currChroma, _frameSize>>1);
-    }
-  }
-
-/*
       continue;
+
       // ---------------------------------------------------------------------
       // STAGE 3 - WZ Decode
       // ---------------------------------------------------------------------
@@ -323,15 +311,15 @@ void Decoder::decodeWzFrame()
 
       double dTotalRate = (double)tmp/1024/8;
 
-      _trans->dctTransform(imgSI, iDCT);
+      _trans->dctTransform(imgSI, iDCT, _frameWidth, _frameHeight);
 
       memset(iDecoded, 0, _frameSize*4);
       memset(iDecodedInvQ, 0, _frameSize*4);
 
       _si->getResidualFrame(prevKeyLuma, imgSI, iDCTBuffer);
 
-      _trans->dctTransform(iDCTBuffer, iDCTResidual);
-      _trans->quantization(iDCTResidual, iDCTQ);
+      _trans->dctTransform(iDCTBuffer, iDCTResidual, _frameWidth, _frameHeight);
+      _trans->quantization(iDCTResidual, iDCTQ, false);
 
       int iOffset = 0;
 
@@ -348,8 +336,8 @@ void Decoder::decodeWzFrame()
         iOffset += QuantMatrix[_qp][y][x];
       }
 
-      _trans->invQuantization(iDecoded, iDecodedInvQ, iDCTResidual);
-      _trans->invDctTransform(iDecodedInvQ, iDCTBuffer);
+      _trans->invQuantization(iDecoded, iDecodedInvQ, iDCTResidual, false);
+      _trans->invDctTransform(iDecodedInvQ, iDCTBuffer, _frameWidth, _frameHeight);
 
       _si->getRecFrame(prevKeyLuma, iDCTBuffer, currLuma);
 #     if SKIP_MODE
@@ -360,20 +348,18 @@ void Decoder::decodeWzFrame()
       cout << endl;
       cout << "total bytes (Y/frame): " << dTotalRate << " Kbytes" << endl;
 
-      float currPSNRSI = calcPSNR(oriCurrFrame, imgSI, _frameSize);
       cout << "side information quality " << currPSNRSI << endl;
-      dPSNRSIAvg += currPSNRSI;
 
-      float currPSNR = calcPSNR(oriCurrFrame, currLuma, _frameSize);
-      dPSNRAvg += currPSNR;
-      cout << "wyner-ziv frame quality " << currPSNR << endl;
+      //cout << "wyner-ziv frame quality " << currPSNR << endl;
+
       fwrite(_fb->getCurrFrame(), _frameSize, 1, fWritePtr);
       fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
 
       // copy curr buffers into prev buffer
       memcpy(prevLuma, currLuma, _frameSize);
       memcpy(prevChroma, currChroma, _frameSize>>1);
-*/
+    }
+  }
 
   timeEnd = clock();
   cpuTime = (timeEnd - timeStart) / CLOCKS_PER_SEC;
@@ -400,11 +386,15 @@ void Decoder::decodeWzFrame()
   cout<<"Key Frame PSNRY     :   "<<dKeyPSNR[0]<<endl;
   cout<<"Key Frame PSNRU     :   "<<dKeyPSNR[1]<<endl;
   cout<<"Key Frame PSNRV     :   "<<dKeyPSNR[2]<<endl;
-//  dPSNRAvg   /= iDecodeWZFrames;
-//  cout<<"WZ Avg Rate  (kbps) :   "<<totalrate/double(iDecodeWZFrames)*framerate*(iDecodeWZFrames)/(double)iTotalFrames*8.0<<endl;
-//  cout<<"WZ Avg PSNR         :   "<<dPSNRAvg<<endl;
-//  cout<<"Avg Rate (Key+WZ)   :   "<<totalrate/double(iDecodeWZFrames)*framerate*(iDecodeWZFrames)/(double)iTotalFrames*8.0+dKeyCodingRate*framerate*(iNumGOP)/(double)iTotalFrames<<endl;
-//  cout<<"Avg    PSNR         :   "<<(dPSNRAvg+dKeyPSNR)/2<<endl;
+  dPSNRAvg   /= iDecodeWZFrames;
+  cout<<"WZ Avg Rate  (kbps) :   "<<totalrate/double(iDecodeWZFrames)*framerate*(iDecodeWZFrames)/(double)iTotalFrames*8.0<<endl;
+  cout<<"WZ Avg PSNR         :   "<<dPSNRAvg<<endl;
+  cout<<"Avg Rate (Key+WZ)   :   "<<totalrate/double(iDecodeWZFrames)*
+                                   framerate*(iDecodeWZFrames)/
+                                   (double)iTotalFrames*8.0+
+                                   dKeyCodingRate[0]*framerate*
+                                   (iNumGOP)/(double)iTotalFrames<<endl;
+  cout<<"Avg    PSNR         :   "<<(dPSNRAvg+dKeyPSNR[0])/2<<endl;
   cout<<"--------------------------------------------------"<<endl;
   dPSNRSIAvg /= iDecodeWZFrames;
   dPSNRUAvg /= iDecodeWZFrames;
@@ -442,7 +432,6 @@ void Decoder::parseKeyStat(const char* filename, double* rate, double* psnr)
 
   while (stats.getline(buf, 1024)) {
     string result;
-    //SNR
     if (rgx->match(buf, "\\s*SNR Y\\(dB\\)[ |]*([0-9\\.]+)", result)) {
       psnr[0] = atof(result.c_str());
       continue;

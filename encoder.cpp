@@ -298,11 +298,6 @@ void Encoder::encodeWzFrame()
       // ---------------------------------------------------------------------
       // STAGE 7 - Encode Chroma planes and Write to Bit-stream
       // ---------------------------------------------------------------------
-      // TODO: implement Chroma encoding
-      // - residual enc                       CHECK
-      // - DCT (can reuse transforms)         CHECK
-      // - Quant                              CHECK  
-      // - Entropy Enc                        CHECK
       for (int idx = 0; idx < _frameSize>>1; idx++)
         chromaResidue[idx] = currChroma[idx] - prevChroma[idx];
 

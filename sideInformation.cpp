@@ -56,6 +56,10 @@ void
 SideInformation::createSideInfo(imgpel* prevChroma, imgpel* currChroma,
                                 imgpel* imgPrevKey, imgpel* imgCurrFrame)
 {
+  if (_p == 0) {
+    memcpy(imgCurrFrame, imgPrevKey, _frameSize);
+    return;
+  }
   /* upsample the Chroma into new buffer */
   imgpel* refUChroma = new imgpel[_frameSize];
   imgpel* refVChroma = new imgpel[_frameSize];
