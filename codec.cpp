@@ -146,6 +146,39 @@ const int Codec::HuffmanCodeLength[4][3][16] = {
    {  1,  3,  4,  5,  5,  5,  6,  6,  6,  7,  7,  7,  7,  7,  7,  3}}   // type 2
 };
 
+void Codec::getRecFrame(imgpel* recon, imgpel* bRef, imgpel* fRef,
+                        int* curr,  int* rcList, bool isChr)
+{
+  int blockCount = 0;
+  int width, height;
+  if (isChr) {
+    width = _frameWidth>>1;
+    height = _frameHeight>>1;
+  } else {
+    width = _frameWidth;
+    height = _frameHeight;
+  }
+  imgpel* refFrame;
+
+  for (int j = 0; j < height; j += ResidualBlockSize)
+    for (int i = 0; i < width; i += ResidualBlockSize) {
+# if HARDWARE_OPT
+      refFrame = bRef;
+      (void) fRef;
+      (void) rcList;
+# else // if !HARDWARE_OPT
+      refFrame = (rcList[blockCount] == 0) ? bRef : fRef;
+#endif
+      for (int y = 0; y < ResidualBlockSize; y++)
+        for (int x = 0; x < ResidualBlockSize; x++) {
+          int idx = (i+x) + (j+y)*width;
+
+          recon[idx] = curr[idx] + refFrame[idx];
+        }
+      blockCount++;
+    }
+}
+
 using namespace std;
 
 map<string, string>&

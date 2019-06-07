@@ -12,6 +12,7 @@
 #include "sideInformation.h"
 #include "transform.h"
 #include "corrModel.h"
+#include "calculations.h"
 #include "time.h"
 #include "cavlcDec.h"
 #include "frameBuffer.h"
@@ -20,24 +21,6 @@
 #include "regExp.h"
 
 using namespace std;
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-template<class T, class U>
-double calcMSE(T* img1, U* img2,int length)
-{
-  float MSE=0;
-  for(int i=0;i<length;i++)
-    {
-      MSE+=pow(float(img1[i]-img2[i]),float(2.0))/length;
-    }
-  return MSE;
-}
-template<class T, class U>
-double calcPSNR(T* img1, U* img2,int length)
-{
-  return 10*log10(255*255/calcMSE(img1, img2, length));
-}
 
 Decoder::Decoder(map<string, string> configMap)
 {
@@ -115,6 +98,16 @@ void Decoder::initialize()
   _average          = new double[16];
   _alpha            = new double[_frameSize];
   _sigma            = new double[16];
+  _rcList           = new int[_frameSize/64];
+  _rcListU          = new int[_frameSize/256];
+  _rcListV          = new int[_frameSize/256];
+
+  for (int i = 0; i < _frameSize/64; i++)
+    _rcList[i] = 0;
+  for (int i = 0; i < _frameSize/256; i++) {
+    _rcListU[i] = 0;
+    _rcListV[i] = 0;
+  }
 
   _skipMask         = new int[_bitPlaneLength];
 
@@ -172,15 +165,14 @@ void Decoder::decodeWzFrame()
   clock_t timeStart, timeEnd;
   double cpuTime;
 
-  imgpel* currLuma      = _fb->getCurrFrame();
-  imgpel* prevLuma      = _fb->getPrevFrame();
-  imgpel* currChroma    = _fb->getCurrChroma();
-  imgpel* prevChroma    = _fb->getPrevChroma();
-  imgpel* oriCurrFrame  = _fb->getorigFrame();
-  imgpel* oriCurrChroma  = _fb->getorigChroma();
-  imgpel* imgSI         = _fb->getSideInfoFrame();
-
 // Luma Buffers
+  imgpel* imgRefinedSI  = new imgpel[_frameSize];
+  imgpel* prevLuma      = new imgpel[_frameSize];
+  imgpel* oriCurrFrame  = _fb->getorigFrame();
+  imgpel* currLuma      = _fb->getCurrFrame();
+  imgpel* prevKeyLuma   = _fb->getPrevFrame();
+  imgpel* nextKeyLuma   = _fb->getNextFrame();
+  imgpel* imgSI         = _fb->getSideInfoFrame();
   int* iDCT             = _fb->getDctFrame();
   int* iDCTQ            = _fb->getQuantDctFrame();
   int* iDecoded         = _fb->getDecFrame();
@@ -189,8 +181,11 @@ void Decoder::decodeWzFrame()
   int* iDCTResidual     = new int [_frameSize];
 
 // Chroma Buffers
-  imgpel* prevKeyLuma   = new imgpel[_frameSize];
-  imgpel* prevKeyChroma = new imgpel[_frameSize>>1];
+  imgpel* oriCurrChroma = _fb->getorigChroma();
+  imgpel* currChroma    = _fb->getCurrChroma();
+  imgpel* prevKeyChroma = _fb->getPrevChroma();
+  imgpel* nextKeyChroma = _fb->getNextChroma();
+  imgpel* prevChroma    = new imgpel[_frameSize>>1];
   int* iDecodedU        = new int[_frameSize>>2];
   int* iDecodedV        = new int[_frameSize>>2];
   int* iDctU            = new int[_frameSize>>2];
@@ -222,10 +217,17 @@ void Decoder::decodeWzFrame()
     fseek(fKeyReadPtr, (3*(keyFrameNo)*_frameSize)>>1, SEEK_SET);
     fread(prevKeyLuma, _frameSize, 1, fKeyReadPtr);
     fread(prevKeyChroma, _frameSize>>1, 1, fKeyReadPtr);
-    fwrite(prevKeyLuma, _frameSize, 1, fWritePtr);
-    fwrite(prevKeyChroma, _frameSize>>1, 1, fWritePtr);
+
+    // read next key frame
+    fseek(fKeyReadPtr, (3*_frameSize)>>1, SEEK_CUR);
+    fread(nextKeyLuma, _frameSize, 1, fKeyReadPtr);
+    fread(nextKeyChroma, _frameSize>>1, 1, fKeyReadPtr);
+
+    // copy prevKey to prev and write to output file
     memcpy(prevLuma, prevKeyLuma, _frameSize);
     memcpy(prevChroma, prevKeyChroma, _frameSize>>1);
+    fwrite(prevKeyLuma, _frameSize, 1, fWritePtr);
+    fwrite(prevKeyChroma, _frameSize>>1, 1, fWritePtr);
 
     for (int idx = 1; idx < _gop; idx++) {
       // Start decoding the WZ frame
@@ -251,6 +253,14 @@ void Decoder::decodeWzFrame()
 
       int bitsU = 0;
       int bitsV = 0;
+
+# if !HARDWARE_FLOW
+    for (int i = 0; i < _frameSize/256; i++) {
+      _rcListU[i] = _bsU->read(1);
+      _rcListV[i] = _bsV->read(1);
+    }
+# endif // !HARDWARE_FLOW
+
       // read bits from bitstream
       for (int j = 0; j < ch; j += 4) {
         for (int i = 0; i < cw; i += 4) {
@@ -270,18 +280,19 @@ void Decoder::decodeWzFrame()
         bitsV += dummy;
       }
 # endif // HARDWARE_FLOW
+
       chromarate += (bitsU + bitsV) / (1024);
 
-      _trans->invQuantization(iDecodedU, iQuantU, true);
-      _trans->invQuantization(iDecodedV, iQuantV, true);
+      _trans->invQuantization(iDecodedU, iQuantU);
+      _trans->invQuantization(iDecodedV, iQuantV);
       _trans->invDctTransform(iQuantU, iDctU, true);
       _trans->invDctTransform(iQuantV, iDctV, true);
 
       // add residual to reference frame
-      for (int idx = 0; idx < chsize; idx++) {
-        currChroma[idx] = iDctU[idx] + prevKeyChroma[idx];
-        currChroma[idx+chsize] = iDctV[idx] + prevKeyChroma[idx+chsize];
-      }
+      getRecFrame(currChroma, prevKeyChroma, nextKeyChroma,
+                  iDctU, _rcListU, true); 
+      getRecFrame(currChroma+chsize, prevKeyChroma+chsize,
+                  nextKeyChroma+chsize, iDctV, _rcListV, true); 
       
       // ---------------------------------------------------------------------
       // STAGE 2 - Create side information
@@ -289,6 +300,8 @@ void Decoder::decodeWzFrame()
       // Predict from coincident Chroma
       _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
 
+      fwrite(imgSI, _frameSize, 1, fWritePtr);
+      fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
       float currPSNRSI = calcPSNR(oriCurrFrame, imgSI, _frameSize);
       cout << "PSNR SI: " << currPSNRSI << endl;
       //float currPSNR = calcPSNR(oriCurrFrame, currLuma, _frameSize);
@@ -316,12 +329,16 @@ void Decoder::decodeWzFrame()
       memset(iDecoded, 0, _frameSize*4);
       memset(iDecodedInvQ, 0, _frameSize*4);
 
-      _si->getResidualFrame(prevKeyLuma, imgSI, iDCTBuffer);
+      _si->getResidualFrame(prevKeyLuma, nextKeyLuma,
+                            imgSI, iDCTBuffer, _rcList);
 
       _trans->dctTransform(iDCTBuffer, iDCTResidual, false);
       _trans->quantization(iDCTResidual, iDCTQ, false);
 
       int iOffset = 0;
+      int iDC;
+
+      memcpy(iDecodedInvQ, iDCTResidual, 4*_frameSize);
 
       for (int i = 0; i < 16; i++) {
         x = ScanOrder[i][0];
@@ -333,16 +350,28 @@ void Decoder::decodeWzFrame()
 #   else
         dTotalRate += decodeLDPC(iDCTQ, iDCTResidual, iDecoded, x, y, iOffset);
 #   endif
+
+        //temporal reconstruction
+        _trans->invQuantization(iDecoded, iDecodedInvQ, iDCTResidual, x, y);
+        _trans->invDctTransform(iDecodedInvQ, iDCTBuffer, false);
+
+        _si->getRecFrame(prevKeyLuma, nextKeyLuma, iDCTBuffer, currLuma, _rcList);
+
+        iDC = (x == 0 && y == 0) ? 0 : 1;
+
+        _si->getRefinedSideInfo(prevLuma, nextKeyLuma, imgSI, currLuma, imgRefinedSI, iDC);
+        currPSNRSI = calcPSNR(oriCurrFrame, imgRefinedSI, _frameSize);
+        cout << "PSNR Refined SI: " << currPSNRSI << endl;
+
+        memcpy(imgSI, imgRefinedSI, _frameSize);
+
+        _si->getResidualFrame(prevKeyLuma, nextKeyLuma, imgSI, iDCTBuffer, _rcList);
+
+        _trans->dctTransform(iDCTBuffer, iDCTResidual, false);
+        _trans->quantization(iDCTResidual, iDCTQ, false);
+
         iOffset += QuantMatrix[_qp][y][x];
       }
-
-      _trans->invQuantization(iDecoded, iDecodedInvQ, iDCTResidual, false);
-      _trans->invDctTransform(iDecodedInvQ, iDCTBuffer, false);
-
-      _si->getRecFrame(prevKeyLuma, iDCTBuffer, currLuma);
-#     if SKIP_MODE
-      getSkippedRecFrame(prevKeyLuma, currLuma, _skipMask);
-#     endif
 
       totalrate += dTotalRate;
       cout << endl;
@@ -478,6 +507,35 @@ int Decoder::getSyndromeData()
 {
   int* iDecoded = _fb->getDecFrame();
   int  decodedBits = 0;
+#   if !HARDWARE_FLOW
+  // Decode motion vector
+  for (int i = 0; i < _frameSize/64; i++)
+    _rcList[i] = _bs->read(1);
+#   endif
+
+  // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  for (int j = 0; j < 4; j++) {
+    for (int i = 0; i < 4; i++) {
+#   if !HARDWARE_FLOW
+      _maxValue[j][i] = _bs->read(11);
+#   endif
+
+      if (QuantMatrix[_qp][j][i] != 0) {
+#   if HARDWARE_QUANTIZATION
+        _quantStep[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_qp][j][i]);
+#   else
+        int iInterval = 1 << QuantMatrix[_qp][j][i];
+
+        _quantStep[j][i] = (int)(ceil(double(2*abs(_maxValue[j][i]))/double(iInterval-1)));
+        _quantStep[j][i] = Max(_quantStep[j][i], MinQStepSize[_qp][j][i]);
+#   endif
+      }
+      else
+        _quantStep[j][i] = 1;
+
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // ---------------------------------------------------------------------------
@@ -529,10 +587,7 @@ int Decoder::getSyndromeData()
 
 # if SKIP_MODE
   decodedBits += decodeSkipMask();
-#else
-  memset(_skipMask, 0, _bitPlaneLength);
 # endif
-
 
 # if HARDWARE_FLOW
   bitCount = _bs->getBitCount() - bitCount;
@@ -679,10 +734,21 @@ double Decoder::decodeLDPC(int* iQuantDCT, int* iDCT, int* iDecoded, int x, int 
 
   for (iCurrPos = _rcQuantMatrix[y][x]-1; iCurrPos >= 0; iCurrPos--)
   {
+#if SKIP_MODE
     if (iCurrPos == _rcQuantMatrix[y][x]-1)
-      dParityRate = _model->getSoftInput(iQuantDCT, _skipMask, iCurrPos, iDecodedTmp, dLLR, x, y, 1);
+      dParityRate = _model->getSoftInput(iQuantDCT, _skipMask, iCurrPos,
+                                         iDecodedTmp, dLLR, x, y, 1);
     else
-      dParityRate = _model->getSoftInput(iDCT, _skipMask, iCurrPos, iDecodedTmp, dLLR, x, y, 2);
+      dParityRate = _model->getSoftInput(iDCT, _skipMask, iCurrPos,
+                                         iDecodedTmp, dLLR, x, y, 2);
+#else
+    if (iCurrPos == _rcQuantMatrix[y][x]-1)
+      dParityRate = _model->getSoftInput(iQuantDCT, iCurrPos,
+                                         iDecodedTmp, dLLR, x, y, 1);
+    else
+      dParityRate = _model->getSoftInput(iDCT, iCurrPos,
+                                         iDecodedTmp, dLLR, x, y, 2);
+#endif
     iNumCode = int(dParityRate*66);
 
     if (iNumCode <= 2)

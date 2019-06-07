@@ -410,135 +410,81 @@ void Transform::quan4x4(int* src, int* dst, int x, int y, bool isChr)
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-#if SI_REFINEMENT
 void Transform::invQuantization(int* src, int* dst, int* si,
-                                int offsetX, int offsetY, bool isChr)
-#else
-void Transform::invQuantization(int* src, int* dst, int* si, bool isChr)
-#endif
+                                int offsetX, int offsetY)
 {
   int width, height;
-  if (isChr) {
-    width = _codec->getFrameWidth()>>1;
-    height = _codec->getFrameHeight()>>1;
-  } else {
-    width = _codec->getFrameWidth();
-    height = _codec->getFrameHeight();
-  }
+  width = _codec->getFrameWidth();
+  height = _codec->getFrameHeight();
 
   for (int y = 0; y < height; y += 4)
     for (int x = 0; x < width; x += 4) {
-#if SI_REFINEMENT
-      invquan4x4(src, dst, si, x, y, offsetX, offsetY, isChr);
-#else
-      invquan4x4(src, dst, si, x, y, isChr);
-#endif
+      invquan4x4(src, dst, si, x, y, offsetX, offsetY);
     }
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-#if SI_REFINEMENT
-void Transform::invQuantization(int* src, int* dst,
-                                int offsetX, int offsetY, bool isChr)
-#else
-void Transform::invQuantization(int* src, int* dst, bool isChr)
-#endif
+void Transform::invQuantization(int* src, int* dst)
 {
   int width, height;
-  if (isChr) {
-    width = _codec->getFrameWidth()>>1;
-    height = _codec->getFrameHeight()>>1;
-  } else {
-    width = _codec->getFrameWidth();
-    height = _codec->getFrameHeight();
-  }
+  width = _codec->getFrameWidth()>>1;
+  height = _codec->getFrameHeight()>>1;
   for (int y = 0; y < height; y += 4)
     for (int x = 0; x < width; x += 4) {
-#if SI_REFINEMENT
-      invquan4x4(src, dst, x, y, offsetX, offsetY, isChr);
-#else
-      invquan4x4(src, dst, x, y, isChr);
-#endif
+      invquan4x4(src, dst, x, y);
     }
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-# if SI_REFINEMENT
-void Transform::invquan4x4(int* src, int* dst, int* si, int x, int y,
-                           int i, int j, bool isChr)
-# else
-void Transform::invquan4x4(int* src, int* dst, int* si, int x, int y, bool isChr)
-# endif
+void Transform::invquan4x4(int* src, int* dst, int* si,
+                           int x, int y, int i, int j)
 {
   int qp, width;
-  if (isChr) {
-    qp = _codec->getChrQp();
-    width = _codec->getFrameWidth()>>1;
-  } else {
-    qp = _codec->getQp();
-    width = _codec->getFrameWidth();
+  qp = _codec->getQp();
+  width = _codec->getFrameWidth();
+
+  int     index = (x+i) + (y+j)*width;
+  // not Chroma coding, so 'false'
+  int     step  = _codec->getQuantStep(i, j, false);
+  int     mask  = (0x1<<(_codec->getQuantMatrix(qp, i, j)-1)) - 1;
+  int     sign  = (src[index]>>(_codec->getQuantMatrix(qp, i, j)-1)) & 0x1;
+  int     value = src[index] & mask;
+  double  alpha = _codec->getAlpha()[index];
+
+  if (i == 0 && j == 0) {
+    dst[index] = (sign == 0) ? value*step : -value*step;
+    mmse(dst+index, si+index, dst+index, step, alpha);
   }
-
-# if !SI_REFINEMENT
-  for (int j = 0; j < 4; j++)
-    for (int i = 0; i < 4; i++)
-# endif
-    {
-      int     index = (x+i) + (y+j)*width;
-      int     step  = _codec->getQuantStep(i, j, isChr);
-      int     mask  = (0x1<<(_codec->getQuantMatrix(qp, i, j)-1)) - 1;
-      int     sign  = (src[index]>>(_codec->getQuantMatrix(qp, i, j)-1)) & 0x1;
-      int     value = src[index] & mask;
-      double  alpha = _codec->getAlpha()[index];
-
-      if (i == 0 && j == 0) {
-        dst[index] = (sign == 0) ? value*step : -value*step;
-
-        mmse(dst+index, si+index, dst+index, step, alpha);
-      }
-      else if (_codec->getQuantMatrix(qp, i, j) != 0) {
-        dst[index] = (sign == 0) ? value*step : -value*step;
-
-        mmse(dst+index, si+index, dst+index, step, alpha);
-      }
-      else
-        dst[index] = si[index];
-    }
+  else if (_codec->getQuantMatrix(qp, i, j) != 0) {
+    dst[index] = (sign == 0) ? value*step : -value*step;
+    mmse(dst+index, si+index, dst+index, step, alpha);
+  }
+  else
+    dst[index] = si[index];
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-# if SI_REFINEMENT
-void Transform::invquan4x4(int* src, int* dst, int x, int y,
-                           int i, int j, bool isChr)
-# else
-void Transform::invquan4x4(int* src, int* dst, int x, int y, bool isChr)
-# endif
+void Transform::invquan4x4(int* src, int* dst, int x, int y)
 {
   int qp, width;
-  if (isChr) {
-    qp = _codec->getChrQp();
-    width = _codec->getFrameWidth()>>1;
-  } else {
-    qp = _codec->getQp();
-    width = _codec->getFrameWidth();
-  }
+  qp = _codec->getChrQp();
+  width = _codec->getFrameWidth()>>1;
 
-# if !SI_REFINEMENT
   for (int j = 0; j < 4; j++)
     for (int i = 0; i < 4; i++)
-# endif
-    {
-      int index = (x+i) + (y+j)*width;
-      int step  = _codec->getQuantStep(i, j, isChr);
-      int mask  = (0x1<<(_codec->getQuantMatrix(qp, i, j)-1)) - 1;
-      int sign  = (src[index]>>(_codec->getQuantMatrix(qp, i, j)-1)) & 0x1;
-      int value = src[index] & mask;
+  {
+    int index = (x+i) + (y+j)*width;
+    // only Chroma coding, so 'true'
+    int step  = _codec->getQuantStep(i, j, true);
+    int mask  = (0x1<<(_codec->getQuantMatrix(qp, i, j)-1)) - 1;
+    int sign  = (src[index]>>(_codec->getQuantMatrix(qp, i, j)-1)) & 0x1;
+    int value = src[index] & mask;
 
-      dst[index] = (sign == 0) ? value*step : -value*step;
-    }
+    dst[index] = (sign == 0) ? value*step : -value*step;
+  }
 }
 
 // -----------------------------------------------------------------------------

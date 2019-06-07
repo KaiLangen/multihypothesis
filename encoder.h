@@ -28,6 +28,9 @@ protected:
 
   void encodeWzHeader();
 
+int* computeResidue(int* residue, imgpel* bRef, imgpel* fRef,
+                    imgpel* curr, Bitstream* bs);
+
   void updateMaxValue(int* block);
 
   void computeQuantStep();

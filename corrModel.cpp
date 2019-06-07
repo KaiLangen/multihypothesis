@@ -110,7 +110,14 @@ double getCondProb(int iBit,int iBand,int iBitLength,int iCurrPos,int iDecodedBi
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-double CorrModel::getSoftInput(int* si,int* skipMask,int iCurrPos,int *iDecoded,double* dLLR,int x,int y,int iMode){
+#if SKIP_MODE
+double CorrModel::getSoftInput(int* si, int* skipMask, int iCurrPos,
+                               int *iDecoded, double* dLLR,
+                               int x, int y, int iMode){
+#else
+double CorrModel::getSoftInput(int* si, int iCurrPos, int *iDecoded,
+                               double* dLLR, int x, int y, int iMode){
+#endif
   double p0,p1;
   double p=0.0;
   double tp=0.0;
@@ -240,7 +247,6 @@ void CorrModel::correlationNoiseModeling(imgpel *imgMCFoward,imgpel* imgMCBackwa
 }
 
 
-#if SI_REFINEMENT
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 void CorrModel::updateCNM(imgpel* imgForward,imgpel* imgBackward,int *refinedMask)
@@ -274,14 +280,14 @@ void CorrModel::updateCNM(imgpel* imgForward,imgpel* imgBackward,int *refinedMas
               residue[i+x+(j+y)*iWidth]=float(imgForward[i+x+(j+y)*iWidth]-imgBackward[i+x+(j+y)*iWidth]);
           }
 
-        _trans->dct4x4(residue,residue_b,i,j);
+        _trans->dct4x4(residue, residue_b, i, j, false);
 
         for(int y=0;y<4;y++)
           for(int x=0;x<4;x++)
           {
             iIndex=(x+i)+(y+j)*iWidth;
             double d=fabs((double)residue_b[iIndex])-dAverage[x+y*4];
-            int iQuantStep=_codec->getQuantStep(x, y);
+            int iQuantStep=_codec->getQuantStep(x, y, false);
             if(d*d<=dSigma[x+y*4])
             {
               dAlpha[iIndex]=sqrt(2/(dSigma[x+y*4]+0.1*iQuantStep*iQuantStep));
@@ -296,5 +302,3 @@ void CorrModel::updateCNM(imgpel* imgForward,imgpel* imgBackward,int *refinedMas
   delete [] residue;
   delete [] residue_b;
 }
-#endif
-

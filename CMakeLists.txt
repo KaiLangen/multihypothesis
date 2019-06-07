@@ -29,6 +29,7 @@ add_library(utils bitstream.cpp
                   codec.cpp
                   ldpca.cpp
                   transform.cpp
+                  calculations.cpp
 )
 
 # encoder

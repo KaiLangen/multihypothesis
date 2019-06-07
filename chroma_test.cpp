@@ -5,6 +5,7 @@
 #include <map>
 #include <opencv2/opencv.hpp>
 
+#include "calculations.h"
 #include "encoder.h"
 #include "transform.h"
 #include "fileManager.h"
@@ -20,6 +21,7 @@ class EncTest : public Encoder {
 public:
   EncTest(map<string, string> configMap);
   ~EncTest() {};
+  void resiTest();
   void transTest();
   void qTest1();
   void qTest2();
@@ -31,16 +33,15 @@ public:
 
 private:
   int* chromaResidue = new int[_frameSize>>1];
-  int* dctUFrame = new int[_frameSize>>2];
-  int* dctVFrame = new int[_frameSize>>2];
-  int* quantUFrame = new int[_frameSize>>2];
-  int* quantVFrame = new int[_frameSize>>2];
   int* iDecodedU = new int[_frameSize>>2];
   int* iDecodedV = new int[_frameSize>>2];
   int* iDctU = new int[_frameSize>>2];
   int* iDctV = new int[_frameSize>>2];
   int* iQuantU = new int[_frameSize>>2];
   int* iQuantV = new int[_frameSize>>2];
+  int* rcU = new int[_frameSize/256];
+  int* rcV = new int[_frameSize/256];
+  int* dctUFrame, *dctVFrame, *quantUFrame, *quantVFrame;
   imgpel* recon = new imgpel[_frameSize>>1];
   const int cw = _frameWidth >> 1;
   const int ch = _frameHeight >> 1;
@@ -50,33 +51,22 @@ private:
 
   imgpel* currChroma;
   imgpel* prevChroma;
+  imgpel* nextChroma;
   FILE* fReadPtr;
 };
 
 // -----------------------------------------------------------------------------
-//  Helper / Constructor Functions
+// Constructor
 // -----------------------------------------------------------------------------
-template <class T, class U>
-double calcMSE(T* img1, U* img2,int length)
-{
-  float MSE=0;
-  for(int i=0;i<length;i++)
-  {
-    MSE+=pow(float(img1[i]-img2[i]),float(2.0))/length;
-  }
-  return MSE;
-}
-
-template <class T, class U>
-double calcPSNR(T* img1, U* img2,int length)
-{
-  return 10*log10(255*255/calcMSE(img1, img2, length));
-}
-
 EncTest::EncTest(map<string, string> configMap): Encoder(configMap){
   fReadPtr = _files->getFile("src")->getFileHandle();
-  prevChroma = _fb->getPrevChroma();
   currChroma = _fb->getCurrChroma();
+  prevChroma = _fb->getPrevChroma();
+  nextChroma = _fb->getNextChroma();
+  dctUFrame = _fb->getDctChroma();
+  dctVFrame = _fb->getDctChroma() + chsize;
+  quantUFrame = _fb->getQuantDctFrame();
+  quantVFrame = _fb->getQuantDctFrame() + chsize;
 
   // for testing file I/O
   _files = FileManager::getManager();
@@ -87,25 +77,36 @@ EncTest::EncTest(map<string, string> configMap): Encoder(configMap){
   _bsU = new Bitstream(1024, _files->getFile("wzU_in")->getFileHandle());
   _bsV = new Bitstream(1024, _files->getFile("wzV_in")->getFileHandle());
   _qp = 7;
+  _chrQp = 7;
   computeQuantStep();
 
-  fseek(fReadPtr, _frameSize, SEEK_CUR);
+  fseek(fReadPtr, _frameSize, SEEK_SET);
   fread(prevChroma, _frameSize>>1, 1, fReadPtr);
-  fseek(fReadPtr, (15*_frameSize>>1), SEEK_SET);
   fseek(fReadPtr, _frameSize, SEEK_CUR);
   fread(currChroma, _frameSize>>1, 1, fReadPtr);
-  for (int idx = 0; idx < _frameSize>>1; idx++)
-    chromaResidue[idx] = currChroma[idx] - prevChroma[idx];
+  fseek(fReadPtr, _frameSize, SEEK_CUR);
+  fread(nextChroma, _frameSize>>1, 1, fReadPtr);
+
+  rcU = computeResidue(chromaResidue,prevChroma,nextChroma,currChroma,_bsU);
+  rcV = computeResidue(chromaResidue+chsize, prevChroma+chsize,
+                       nextChroma+chsize, currChroma+chsize, _bsV);
 }
 
 // -----------------------------------------------------------------------------
 // Test functions
 // -----------------------------------------------------------------------------
+void EncTest::resiTest() {
+  cout << "residual Test...";
+  getRecFrame(recon, prevChroma, nextChroma, chromaResidue, rcU, true); 
+  getRecFrame(recon+chsize, prevChroma+chsize, nextChroma+chsize,
+              chromaResidue+chsize, rcV, true); 
+
+  assert(calcMSE(currChroma, recon, chsize) == 0);
+  cout << "passed!" << endl;
+}
+
 void EncTest::transTest() {
-  cout << "#############################" << endl; 
-  cout << "dct->idct:" << endl;
-  cout << "#############################" << endl; 
-  cout << "Original vs. reconstructed:" << endl;
+  cout << "     DCT Test...";
   
   memset(dctUFrame, 0, _frameSize);
   memset(dctVFrame, 0, _frameSize);
@@ -118,28 +119,18 @@ void EncTest::transTest() {
   _trans->invDctTransform(dctUFrame, iDctU, true);
   _trans->invDctTransform(dctVFrame, iDctV, true);
 
-  for (int idx = 0; idx < chsize; idx++) {
-    recon[idx] = iDctU[idx] + prevChroma[idx];
-    recon[idx+chsize] = iDctV[idx] + prevChroma[idx+chsize];
-  }
+  getRecFrame(recon, prevChroma, nextChroma, iDctU, rcU, true); 
+  getRecFrame(recon+chsize, prevChroma+chsize, nextChroma+chsize,iDctV, rcV, true); 
 
   // compute distortion
-  double currPSNR = calcPSNR(currChroma, recon, chsize);
-  double currMSE = calcMSE(currChroma, recon, chsize);
-  cout <<  "MSE (U): " << currMSE << endl;
-  cout << "PSNR (U): " << currPSNR << endl;
-  currPSNR = calcPSNR(currChroma + chsize, recon+chsize, chsize);
-  currMSE = calcMSE(currChroma + chsize, recon+chsize, chsize);
-  cout << "MSE (V): " << currMSE << endl;
-  cout << "PSNR (V): " << currPSNR << endl << endl;
+  assert(calcMSE(currChroma, recon, chsize) < 1);
+  assert(calcMSE(currChroma+chsize, recon+chsize, chsize) < 1);
+  cout << "passed!" << endl;
 }
 
 
 void EncTest::qTest1() {
-  cout << "#############################" << endl; 
-  cout << "dct->quant->iquant" << endl;
-  cout << "#############################" << endl; 
-  cout << "DCT vs. un-quantized:" << endl;
+  cout << " Quant Test 1...";
   memset(dctUFrame, 0, _frameSize);
   memset(dctVFrame, 0, _frameSize);
   memset(quantUFrame, 0, _frameSize);
@@ -154,26 +145,16 @@ void EncTest::qTest1() {
   _trans->quantization(dctUFrame, quantUFrame, true);
   _trans->quantization(dctVFrame, quantVFrame, true);
 
-  _trans->invQuantization(quantUFrame, iQuantU, true);
-  _trans->invQuantization(quantVFrame, iQuantV, true);
+  _trans->invQuantization(quantUFrame, iQuantU);
+  _trans->invQuantization(quantVFrame, iQuantV);
 
-  // compute distortion
-  double currPSNR = calcPSNR(dctUFrame, iQuantU, chsize);
-  double currMSE = calcMSE(dctUFrame, iQuantU, chsize);
-  cout <<  "MSE (U): " << currMSE << endl;
-  cout << "PSNR (U): " << currPSNR << endl;
-  currPSNR = calcPSNR(dctVFrame, iQuantV, chsize);
-  currMSE = calcMSE(dctVFrame, iQuantV, chsize);
-  cout << "MSE (V): " << currMSE << endl;
-  cout << "PSNR (V): " << currPSNR << endl << endl;
+  assert(calcMSE(currChroma, recon, chsize) < 3);
+  assert(calcMSE(currChroma+chsize, recon+chsize, chsize) < 3);
+  cout << "passed!" << endl;
 }
 
-
 void EncTest::qTest2() {
-  cout << "#############################" << endl; 
-  cout << "dct->quant->iquant->idct:" << endl;
-  cout << "#############################" << endl; 
-  cout << "Original vs. reconstructed:" << endl;
+  cout << " Quant Test 2...";
   memset(dctUFrame, 0, _frameSize);
   memset(dctVFrame, 0, _frameSize);
   memset(quantUFrame, 0, _frameSize);
@@ -188,31 +169,22 @@ void EncTest::qTest2() {
   _trans->quantization(dctUFrame, quantUFrame, true);
   _trans->quantization(dctVFrame, quantVFrame, true);
 
-  _trans->invQuantization(quantUFrame, iQuantU, true);
-  _trans->invQuantization(quantVFrame, iQuantV, true);
+  _trans->invQuantization(quantUFrame, iQuantU);
+  _trans->invQuantization(quantVFrame, iQuantV);
   _trans->invDctTransform(iQuantU, iDctU, true);
   _trans->invDctTransform(iQuantV, iDctV, true);
 
-  for (int idx = 0; idx < chsize; idx++) {
-    recon[idx] = iDctU[idx] + prevChroma[idx];
-    recon[idx+chsize] = iDctV[idx] + prevChroma[idx+chsize];
-  }
+  getRecFrame(recon, prevChroma, nextChroma, iDctU, rcU, true); 
+  getRecFrame(recon+chsize, prevChroma+chsize, nextChroma+chsize,iDctV, rcV, true); 
 
-  // compute distortion
-  double currPSNR = calcPSNR(currChroma, recon, chsize);
-  double currMSE = calcMSE(currChroma, recon, chsize);
-  cout <<  "MSE (U): " << currMSE << endl;
-  cout << "PSNR (U): " << currPSNR << endl;
-  currPSNR = calcPSNR(currChroma+chsize, recon+chsize, chsize);
-  currMSE = calcMSE(currChroma+chsize, recon+chsize, chsize);
-  cout << "MSE (V): " << currMSE << endl;
-  cout << "PSNR (V): " << currPSNR << endl << endl;
+  assert(calcMSE(currChroma, recon, chsize) < 3);
+  assert(calcMSE(currChroma+chsize, recon+chsize, chsize) < 3);
+  cout << "passed!" << endl;
 }
 
 void EncTest::cavlcEnc() {
-  cout << "####################################" << endl; 
-  cout << "dct->quant->cavlcEnc->FILE:" << endl;
-  cout << "####################################" << endl; 
+  cout << " Cavlc Encode...";
+
   memset(dctUFrame, 0, _frameSize);
   memset(dctVFrame, 0, _frameSize);
   memset(quantUFrame, 0, _frameSize);
@@ -227,19 +199,16 @@ void EncTest::cavlcEnc() {
   CavlcEnc* cavlcEncV = new CavlcEnc(this, 4);
   bitsU_in = cavlcEncU->encode(quantUFrame, _bsU);
   bitsV_in = cavlcEncV->encode(quantVFrame, _bsV);
-  cout << "Bits written (U): " << bitsU_in << endl;
-  cout << "Bits written (V): " << bitsV_in << endl << endl;
   _bsU->flush();
   _bsV->flush();
   _files->getFile("wzU_in")->closeFile();
   _files->getFile("wzV_in")->closeFile();
+  cout << "passed!" << endl;
 }
 
 void EncTest::cavlcTest1() {
-  cout << "####################################" << endl; 
-  cout << "FILE->cavlcDec:" << endl;
-  cout << "####################################" << endl; 
-  cout << "Quantized vs. cavlcDecoded:" << endl;
+  cout << " Cavlc Test 1...";
+
   memset(dctUFrame, 0, _frameSize);
   memset(dctVFrame, 0, _frameSize);
   memset(quantUFrame, 0, _frameSize);
@@ -254,6 +223,17 @@ void EncTest::cavlcTest1() {
   Bitstream* bsV_out = new Bitstream(1024, _files->getFile("wzV_out")->getFileHandle());
   CavlcDec* cavlcDecU = new CavlcDec(this, 4);
   CavlcDec* cavlcDecV = new CavlcDec(this, 4);
+
+  // Bits may have been written to stream as part of rcList encoding
+  // read the rcList from Bitstreams 
+# if !HARDWARE_FLOW
+  assert(rcU);
+  assert(rcV);
+  for (int i = 0; i < _frameSize/256; i++) {
+    assert(bsU_out->read(1) == rcU[i]);
+    assert(bsV_out->read(1) == rcV[i]);
+  }
+#endif
 
   _trans->dctTransform(chromaResidue, dctUFrame, true);
   _trans->dctTransform(chromaResidue + chsize, dctVFrame, true);
@@ -269,19 +249,15 @@ void EncTest::cavlcTest1() {
       bitsV_out += cavlcDecV->decode(iDecodedV, i, j, bsV_out);
     }
   }
-  cout << "bits read (U):" << bitsU_out << endl;
-  cout << "bits read (V):" << bitsV_out << endl << endl;
   assert(bitsU_in == bitsU_out);
   assert(bitsV_in == bitsV_out);
   assert(calcMSE(quantUFrame, iDecodedU, chsize) == 0);
   assert(calcMSE(quantVFrame, iDecodedV, chsize) == 0);
+  cout << "passed!" << endl;
 }
 
 void EncTest::cavlcTest2() {
-  cout << "####################################" << endl; 
-  cout << "FILE->cavlcDec->iquant->idct:" << endl;
-  cout << "####################################" << endl; 
-  cout << "Original vs. Reconstructed:" << endl;
+  cout << " Cavlc Test 2...";
   memset(iDecodedU, 0, _frameSize);
   memset(iDecodedV, 0, _frameSize);
   memset(iDctU, 0, _frameSize);
@@ -297,6 +273,17 @@ void EncTest::cavlcTest2() {
   CavlcDec* cavlcDecU = new CavlcDec(this, 4);
   CavlcDec* cavlcDecV = new CavlcDec(this, 4);
 
+  // Bits may have been written to stream as part of rcList encoding
+  // read the rcList from Bitstreams 
+# if !HARDWARE_FLOW
+  assert(rcU);
+  assert(rcV);
+  for (int i = 0; i < _frameSize/256; i++) {
+    assert(bsU_out->read(1) == rcU[i]);
+    assert(bsV_out->read(1) == rcV[i]);
+  }
+#endif
+
   // cavlc decode
   int bitsU_out = 0;
   int bitsV_out = 0;
@@ -308,24 +295,16 @@ void EncTest::cavlcTest2() {
   }
 
   // inverse Q & DCT
-  _trans->invQuantization(iDecodedU, iQuantU, true);
-  _trans->invQuantization(iDecodedV, iQuantV, true);
+  _trans->invQuantization(iDecodedU, iQuantU);
+  _trans->invQuantization(iDecodedV, iQuantV);
   _trans->invDctTransform(iQuantU, iDctU, true);
   _trans->invDctTransform(iQuantV, iDctV, true);
 
-  for (int idx = 0; idx < chsize; idx++) {
-    recon[idx] = iDctU[idx] + prevChroma[idx];
-    recon[idx+chsize] = iDctV[idx] + prevChroma[idx+chsize];
-  }
+  getRecFrame(recon, prevChroma, nextChroma, iDctU, rcU, true); 
+  getRecFrame(recon+chsize, prevChroma+chsize, nextChroma+chsize,iDctV, rcV, true); 
 
-  double currPSNR = calcPSNR(currChroma, recon, chsize);
-  double currMSE = calcMSE(currChroma, recon, chsize);
-  cout << "PSNR (U): " << currPSNR << endl;
-  cout << "MSE (U): " << currMSE << endl;
-  currPSNR = calcPSNR(currChroma+chsize, recon+chsize, chsize);
-  currMSE = calcMSE(currChroma+chsize, recon+chsize, chsize);
-  cout << "PSNR (V): " << currPSNR << endl;
-  cout << "MSE (V): " << currMSE << endl << endl;
+  assert(calcMSE(currChroma, recon, chsize) < 3);
+  assert(calcMSE(currChroma+chsize, recon+chsize, chsize) < 3);
 }
 
 
@@ -410,8 +389,8 @@ void EncTest::cavlcTestLoop() {
     cout << "Frame " << frIdx << " Bits (V): " << tempV << endl;
 
     // inverse Q & DCT
-    _trans->invQuantization(iDecodedU, iQuantU, true);
-    _trans->invQuantization(iDecodedV, iQuantV, true);
+    _trans->invQuantization(iDecodedU, iQuantU);
+    _trans->invQuantization(iDecodedV, iQuantV);
     _trans->invDctTransform(iQuantU, iDctU, true);
     _trans->invDctTransform(iQuantV, iDctV, true);
 
@@ -440,7 +419,6 @@ void EncTest::multiQPTest() {
   for (int idx = 0; idx < _frameSize>>1; idx++)
     chromaResidue[idx] = currChroma[idx] - prevChroma[idx];
 
-  int temp = _chrQp;
   for(int qp = 7; qp >= 0; qp--) {
     _chrQp = qp;
     computeQuantStep();
@@ -462,8 +440,8 @@ void EncTest::multiQPTest() {
     _trans->quantization(dctVFrame, quantVFrame, true);
 
     cout << " Decode:" << endl;
-    _trans->invQuantization(quantUFrame, iQuantU, true);
-    _trans->invQuantization(quantVFrame, iQuantV, true);
+    _trans->invQuantization(quantUFrame, iQuantU);
+    _trans->invQuantization(quantVFrame, iQuantV);
     double currPSNR = calcPSNR(chromaResidue, iDctU, chsize);
     double currMSE = calcMSE(chromaResidue, iDctU, chsize);
     _trans->invDctTransform(iQuantU, iDctU, true);
@@ -478,7 +456,7 @@ void EncTest::multiQPTest() {
     cout << "MSE (V): " << currMSE << endl;
     cout << "PSNR (V): " << currPSNR << endl << endl;
   }
-  _chrQp = temp;
+  _chrQp = 7;
   computeQuantStep();
 }
 
@@ -503,15 +481,16 @@ int main(int argc, char** argv)
     configMap["SrcFile"] = argv[2];
     EncTest* test = new EncTest(configMap);
 
+    test->resiTest();
     test->transTest();
     test->qTest1();
     test->qTest2();
-    test->multiQPTest();
+//    test->multiQPTest();
 
     test->cavlcEnc();
     test->cavlcTest1();
     test->cavlcTest2();
-    test->cavlcTestLoop();
+//    test->cavlcTestLoop();
 
   }
   return 0;

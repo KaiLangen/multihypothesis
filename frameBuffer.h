@@ -10,51 +10,55 @@ public:
   FrameBuffer(int width, int height, int gop = 0)
   {
     (void)gop;
-    int frameSize = width * height;
-    _prevFrame        = new imgpel[frameSize];
-    _currFrame        = new imgpel[frameSize];
-    _nextFrame        = new imgpel[frameSize];
-    _prevChroma       = new imgpel[frameSize>>1];
-    _currChroma       = new imgpel[frameSize>>1];
-    _sideInfoFrame    = new imgpel[frameSize];
-    _origFrame        = new imgpel[frameSize];
-    _origChroma       = new imgpel[frameSize>>1];
-
-//    if (gop != 0) {
-//      _refFrames      = new imgpel*[gop-1];
-//
-//      for (int i = 0; i < gop-1; i++)
-//        _refFrames[i] = new imgpel[frameSize];
-//    }
-
-    _dctFrame         = new int[frameSize];
-    _quantDctFrame    = new int[frameSize];
-    _decFrame         = new int[frameSize];
-    _invQuantDecFrame = new int[frameSize];
+    _frameSize = width * height;
+    _prevFrame        = new imgpel[3*(_frameSize>>1)];
+    _currFrame        = new imgpel[3*(_frameSize>>1)];
+    _nextFrame        = new imgpel[3*(_frameSize>>1)];
+    _origFrame        = new imgpel[3*(_frameSize>>1)];
+    _sideInfoFrame    = new imgpel[3*(_frameSize>>1)];
+    _dctFrame         = new int[3*(_frameSize>>1)];
+    _quantDctFrame    = new int[3*(_frameSize>>1)];
+    _decFrame         = new int[3*(_frameSize>>1)];
+    _invQuantDecFrame = new int[3*(_frameSize>>1)];
   };
 
+  //  Luma
   imgpel*  getPrevFrame()        { return _prevFrame; };
-  imgpel*  getPrevChroma()       { return _prevChroma; };
   imgpel*  getCurrFrame()        { return _currFrame; };
-  imgpel*  getCurrChroma()       { return _currChroma; };
   imgpel*  getNextFrame()        { return _nextFrame; };
   imgpel*  getorigFrame()        { return _origFrame; };
-  imgpel*  getorigChroma()        { return _origChroma; };
   imgpel*  getSideInfoFrame()    { return _sideInfoFrame; };
   int*     getDctFrame()         { return _dctFrame; };
   int*     getQuantDctFrame()    { return _quantDctFrame; };
   int*     getDecFrame()         { return _decFrame; };
   int*     getInvQuantDecFrame() { return _invQuantDecFrame; };
 
+  // Chroma
+  imgpel*  getPrevChroma()
+  { return _prevFrame + _frameSize; };
+  imgpel*  getCurrChroma()
+  { return _currFrame + _frameSize; };
+  imgpel*  getNextChroma()
+  { return _nextFrame + _frameSize; };
+  imgpel*  getorigChroma()
+  { return _origFrame + _frameSize; };
+  int*     getDctChroma()
+  { return _dctFrame + _frameSize; };
+  int*     getQuantDctChroma()
+  { return _quantDctFrame + _frameSize; };
+  int*     getDecChroma()
+  { return _decFrame + _frameSize; };
+  int*     getInvQuantDecChroma()
+  { return _invQuantDecFrame + _frameSize; };
+
 private:
+  int _frameSize;
   imgpel*  _prevFrame;
-  imgpel*  _prevChroma;
   imgpel*  _currFrame;
-  imgpel*  _currChroma;
   imgpel*  _nextFrame;
   imgpel*  _origFrame;
-  imgpel*  _origChroma;
   imgpel*  _sideInfoFrame;
+
   int*     _dctFrame;
   int*     _quantDctFrame;
   int*     _decFrame;

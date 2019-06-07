@@ -17,8 +17,16 @@ public:
 
   void createSideInfo(imgpel* prevChroma, imgpel* currChroma,
                       imgpel* imgPrevKey, imgpel* imgCurrFrame);
-  void getResidualFrame(imgpel* bRefFrame, imgpel* currFrame, int* residue);
-  void getRecFrame(imgpel *imgBReference, int *iResidue, imgpel *imgRec);
+
+  void getResidualFrame(imgpel* bRefFrame, imgpel* fRef,
+                        imgpel* curr, int* residue, int* rcList);
+
+  void getRecFrame(imgpel *imgBRef, imgpel *imgFRef,
+                   int *iResidue, imgpel *imgRec, int *rcList);
+
+  void getRefinedSideInfo(imgpel *imgPrevKey, imgpel *imgNextKey,
+                          imgpel *imgCurrFrame, imgpel* imgTmpRec,
+                          imgpel *imgRefined, int iMode);
 
 private:
   void lowpassFilter(imgpel* src, imgpel* dst, const int boxSize);
@@ -34,13 +42,22 @@ private:
 
   void MC(imgpel* imgPrev, imgpel* imgDst, int padSize);
 
-  void spatialSmooth(imgpel* rU, imgpel* rV, imgpel* cU, imgpel* cV, mvinfo* varCandidate,
-                     const int iBlockSize, const int iPadSize);
+  void spatialSmooth(imgpel* rU, imgpel* rV,
+                     imgpel* cU, imgpel* cV,
+                     mvinfo* varCandidate,
+                     const int iBlockSize,
+                     const int iPadSize);
 
   void pad(imgpel* src, imgpel* dst, const int iPadSize);
 
-  Codec*      _codec;
-  CorrModel*  _model;
+  void getSkippedRecFrame(imgpel* prevKey, imgpel* imgWZFrame, int* skipMask);
+
+  void getRefinedSideInfoProcess(imgpel* imgPrevBuffer, imgpel* imgTmpRec,
+                                 imgpel* imgSI, imgpel* imgRefined,
+                                 mvinfo* varList, int iMode);
+
+  Codec* _codec;
+  CorrModel* _model;
 
   int _width;
   int _height;
@@ -49,20 +66,24 @@ private:
   int _ss;
   int _p;
   int _nmv;
+  mvinfo* _mvs;
+  int* _skipMask;
+
+  // SI refinement
+  int* _refinedMask;
+  mvinfo*     _varList0;
+  mvinfo*     _varList1;
 
 # if OBMC
   const static int _H[3][8][8];
 # endif
-
-  mvinfo* _mvs;
-  int* _skipMask;
 };
 
-
 void bilinear(imgpel *source, imgpel *buffer, int buffer_w, int buffer_h,
-              int picwidth, int picheight);
+              int picwidth, int picheight, int px, int py);
 
-int calcSAD(imgpel* blk1, imgpel* blk2, int width1, int width2,
-            int s1,int s2,int blocksize);
+float getDCValue(imgpel* img,int iStep,int iStripe,int iBlock);
+
+
 #endif // DECODER_INC_SIDEINFORMATION_H
 

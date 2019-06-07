@@ -30,6 +30,8 @@ public:
   { if (isChr) return _qStepChr[y][x];
           else return _quantStep[y][x];};
 
+  void getRecFrame(imgpel* recon, imgpel* bRef, imgpel* fRef,
+                   int* curr,  int* rcList, bool isChr);
   Bitstream* getBitstream() { return _bs; };
 
 protected:

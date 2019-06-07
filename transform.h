@@ -30,13 +30,9 @@ public:
   void quantization(int* src, int* dst, bool isChr);
 
   // Inverse quantization
-# if SI_REFINEMENT
-  void invQuantization(int* src, int* dst, int* si, int offsetX, int offsetY, bool isChr);
-  void invQuantization(int* src, int* dst, int offsetX, int offsetY, bool isChr);
-# else
-  void invQuantization(int* src, int* dst, int* si, bool isChr);
-  void invQuantization(int* src, int* dst, bool isChr);
-# endif
+  void invQuantization(int* src, int* dst, int* si, int offsetX, int offsetY);
+
+  void invQuantization(int* src, int* dst);
 
 private:
   // DCT
@@ -52,13 +48,9 @@ private:
   void quan4x4(int* src, int* dst, int x, int y, bool isChr);
 
   // Inverse quantization
-# if SI_REFINEMENT
-  void invquan4x4(int* src, int* dst, int* si, int x, int y, int i, int j, bool isChr);
-  void invquan4x4(int* src, int* dst, int x, int y, int i, int j, bool isChr);
-# else
-  void invquan4x4(int* src, int* dst, int* si, int x, int y, bool isChr);
-  void invquan4x4(int* src, int* dst, int x, int y, bool isChr);
-# endif
+  void invquan4x4(int* src, int* dst, int* si, int x, int y, int i, int j);
+
+  void invquan4x4(int* src, int* dst, int x, int y);
 
   //! Minimum mean square error
   /*! @param[out] x     De-quantized coefficient

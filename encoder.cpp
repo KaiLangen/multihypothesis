@@ -1,4 +1,4 @@
-
+#include <map>
 #include <sstream>
 #include <iostream>
 #include <cstdio>
@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "config.h"
+#include "calculations.h"
 #include "encoder.h"
 #include "transform.h"
 #include "fileManager.h"
@@ -161,21 +162,28 @@ void Encoder::encodeWzFrame()
 
   clock_t timeStart, timeEnd;
   double cpuTime;
+  int chsize = _frameSize>>2;
 
   imgpel* currFrame     = _fb->getCurrFrame();
   imgpel* prevFrame     = _fb->getPrevFrame();
+  imgpel* nextFrame     = _fb->getNextChroma();
   imgpel* currChroma    = _fb->getCurrChroma();
   imgpel* prevChroma    = _fb->getPrevChroma();
+  imgpel* nextChroma    = _fb->getNextChroma();
   int*    dctFrame      = _fb->getDctFrame();
   int*    quantDctFrame = _fb->getQuantDctFrame();
 
   int*    residue       = new int[_frameSize];
   int*    chromaResidue = new int[_frameSize>>1];
-  int*    dctUFrame     = new int[_frameSize>>2];
-  int*    dctVFrame     = new int[_frameSize>>2];
-  int*    quantUFrame   = new int[_frameSize>>2];
-  int*    quantVFrame   = new int[_frameSize>>2];
-  int chsize = _frameSize>>2;
+  imgpel* recon         = new imgpel[_frameSize>>1];
+  int*    iDctU = new int[_frameSize>>2];
+  int*    iDctV = new int[_frameSize>>2];
+  int*    iQuantU = new int[_frameSize>>2];
+  int*    iQuantV = new int[_frameSize>>2];
+  int*    dctUFrame     = _fb->getDctChroma();
+  int*    dctVFrame     = _fb->getDctChroma() + chsize;
+  int*    quantUFrame   = _fb->getQuantDctFrame();
+  int*    quantVFrame   = _fb->getQuantDctFrame() + chsize;
 
   timeStart = clock();
 
@@ -189,9 +197,15 @@ void Encoder::encodeWzFrame()
   // Main loop
   // ---------------------------------------------------------------------------
   for (int keyFrameNo = 0; keyFrameNo < _numFrames/_gop; keyFrameNo++) {
+    // Read previous key frame from the reconstructed key frame file
     fseek(fKeyPtr, (3*keyFrameNo*_frameSize)>>1, SEEK_SET);
     fread(prevFrame, _frameSize, 1, fKeyPtr);
     fread(prevChroma, _frameSize>>1, 1, fKeyPtr);
+
+    // Read next key frame from the reconstructed key frame file
+    fseek(fKeyPtr, (3*_frameSize)>>1, SEEK_CUR);
+    fread(nextFrame, _frameSize, 1, fKeyPtr);
+    fread(nextChroma, _frameSize>>1, 1, fKeyPtr);
     for (int idx = 1; idx < _gop; idx++) {
       // Start encoding the WZ frame
       int wzFrameNo = keyFrameNo*_gop + idx;
@@ -206,11 +220,8 @@ void Encoder::encodeWzFrame()
       // ---------------------------------------------------------------------
       // STAGE 1 - Residual coding & DCT
       // ---------------------------------------------------------------------
-      for (int idx = 0; idx < _frameSize; idx++)
-        residue[idx] = currFrame[idx] - prevFrame[idx];
-
+      computeResidue(residue, prevFrame, nextFrame, currFrame, _bs);
       _trans->dctTransform(residue, dctFrame, false);
-
       updateMaxValue(dctFrame);
 
       // ---------------------------------------------------------------------
@@ -230,7 +241,6 @@ void Encoder::encodeWzFrame()
       // ---------------------------------------------------------------------
 # if SKIP_MODE
       generateSkipMask();
-
       encodeSkipMask();
 # endif // SKIP_MODE
 
@@ -296,13 +306,14 @@ void Encoder::encodeWzFrame()
       // ---------------------------------------------------------------------
       // STAGE 7 - Encode Chroma planes and Write to Bit-stream
       // ---------------------------------------------------------------------
-      for (int idx = 0; idx < _frameSize>>1; idx++)
-        chromaResidue[idx] = currChroma[idx] - prevChroma[idx];
-
       memset(dctUFrame, 0, _frameSize>>2);
       memset(dctVFrame, 0, _frameSize>>2);
       memset(quantUFrame, 0, _frameSize>>2);
       memset(quantVFrame, 0, _frameSize>>2);
+      int* rcU = computeResidue(chromaResidue, prevChroma, nextChroma, currChroma, _bsU);
+      int* rcV = computeResidue(chromaResidue+chsize, prevChroma+chsize,
+                                nextChroma+chsize, currChroma+chsize, _bsV);
+
       _trans->dctTransform(chromaResidue, dctUFrame, true);
       _trans->dctTransform(chromaResidue+chsize, dctVFrame, true);
       _trans->quantization(dctUFrame, quantUFrame, true);
@@ -348,6 +359,70 @@ void Encoder::encodeWzFrame()
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+int* Encoder::computeResidue(int* residue, imgpel* bRef, imgpel* fRef,
+                             imgpel* curr, Bitstream* bs)
+{
+  int blockCount = 0;
+  imgpel* refFrame;
+  int width, height, size;
+  if (bs == _bs) {
+    width = _frameWidth;
+    height = _frameHeight;
+    size = _frameSize;
+  } else {
+    width = _frameWidth>>1;
+    height = _frameHeight>>1;
+    size = _frameSize>>2;
+  }
+
+# if !HARDWARE_OPT
+  int* dirList = new int[size/64];
+
+  memset(dirList, 0, 4*size/64);
+# endif
+
+  for (int j = 0; j < height; j += ResidualBlockSize)
+    for (int i = 0; i < width; i += ResidualBlockSize) {
+# if HARDWARE_OPT
+      refFrame = bRef;
+# else // if !HARDWARE_OPT
+      int bckDist; // b distortion
+      int fwdDist; // f distortion
+
+      bckDist = calcSAD(bRef+i+j*width,
+                        curr+i+j*width,
+                        width, width, 1, 1, ResidualBlockSize);
+
+      fwdDist = calcSAD(fRef+i+j*width,
+                        curr+i+j*width,
+                        width, width, 1, 1, ResidualBlockSize);
+
+      dirList[blockCount] = (bckDist <= fwdDist) ? 0 : 1;
+
+      refFrame = (dirList[blockCount] == 0) ? bRef : fRef;
+# endif // HARDWARE_OPT
+
+      for (int y = 0; y < ResidualBlockSize; y++)
+        for (int x = 0; x < ResidualBlockSize; x++) {
+          int idx = (i+x)+(j+y)*width;
+
+          residue[idx] = curr[idx] - refFrame[idx];
+        }
+      blockCount++;
+    }
+
+# if !HARDWARE_FLOW
+    // Encode motion vector
+    for (int i = 0; i < size/64; i++)
+      bs->write(dirList[i], 1);
+    return dirList;
+#else
+    return NULL;
+# endif
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 void Encoder::updateMaxValue(int* block)
 {
   for (int y = 0; y < 4; y++)
@@ -377,14 +452,11 @@ void Encoder::computeQuantStep()
       // Chroma
       if (QuantMatrix[_chrQp][j][i] != 0) {
         _qStepChr[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_chrQp][j][i]);
-        cout << _qStepChr[j][i] << " ";
       }
       else {
         _qStepChr[j][i] = 1;
-        cout << _qStepChr[j][i] << " ";
       }
     }
-    cout << endl;
   }
 }
 

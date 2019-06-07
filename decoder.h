@@ -70,6 +70,9 @@ private:
   int               _maxValue[4][4];
 
   int               _rcBitPlaneNum;
+  int*              _rcList;
+  int*              _rcListU;
+  int*              _rcListV;
   int               _rcQuantMatrix[4][4];
 
   int*              _spiralSearchX;

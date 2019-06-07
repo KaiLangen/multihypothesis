@@ -13,11 +13,11 @@
 #define SKIP_MODE               0
 #define MODE_DECISION           1
 #define INTEGER_DCT             1
-#define HARDWARE_FLOW           1
-#define HARDWARE_LDPC           1
-#define HARDWARE_CMS            1
-#define HARDWARE_OPT            1
-#define OBMC                    1
+#define HARDWARE_LDPC           0
+#define HARDWARE_CMS            0
+#define HARDWARE_FLOW           0
+#define HARDWARE_OPT            0
+
 
 // Macros for encoder only
 #ifdef ENCODER
@@ -28,6 +28,7 @@
 #ifdef DECODER
 # define INVERSE_MATRIX         1
 #endif
+#define OBMC                    1
 
 #include "types.h"
 
