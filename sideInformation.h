@@ -15,17 +15,12 @@ public:
   SideInformation(Codec* codec, CorrModel* model,
                   std::map<std::string, std::string> configMap);
 
-  // MCI functions
-  void sideInfoChromaMC(imgpel* prevChroma, imgpel* currChroma,
-                        imgpel* imgPrevKey, imgpel* imgCurrFrame);
-  
   void sideInfoMCI(imgpel* prevFrame, imgpel* nextFrame, imgpel* currFrame);
 
-  // Chroma-ME functions
-  void chroma_MEMC(imgpel* prevChroma, imgpel* currChroma,
-                   imgpel* imgPrevKey, imgpel* imgCurrFrame);
+  void chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
+                   imgpel* nextChroma, imgpel* imgnextKey,
+                   imgpel* currChroma, imgpel* imgCurrFrame);
 
-  // general (both methods)
   void getResidualFrame(imgpel* bRefFrame, imgpel* fRef,
                         imgpel* curr, int* residue, int* rcList);
 
@@ -70,9 +65,10 @@ private:
           mvinfo& mv, int p, int center);
 
   void ME(imgpel* refFrameU, imgpel* currFrameU,
-          imgpel* refFrameV, imgpel* currFrameV);
+          imgpel* refFrameV, imgpel* currFrameV,
+          mvinfo* candidate);
 
-  void MC(imgpel* imgPrev, imgpel* imgDst, int padSize);
+  void MC(imgpel* imgPrev, imgpel* imgDst, mvinfo* candidate, int padSize);
 
   void spatialSmooth(imgpel* rU, imgpel* rV,
                      imgpel* cU, imgpel* cV,
@@ -96,7 +92,6 @@ private:
   int _ss;
   int _p;
   int _nmv;
-  mvinfo* _mvs;
   int* _skipMask;
 
   // SI refinement

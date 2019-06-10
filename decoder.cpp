@@ -82,8 +82,6 @@ void Decoder::initialize()
   _frameSize        = _frameWidth * _frameHeight;
   _bitPlaneLength   = _frameSize / 16;
 
-  _numChnCodeBands  = 16;
-
   _dParity          = new double[_bitPlaneLength * BitPlaneNum[_qp]];
 
 # if HARDWARE_LDPC
@@ -297,11 +295,11 @@ void Decoder::decodeWzFrame()
       // STAGE 2 - Create side information
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
-      _si->sideInfoMCI(prevLuma, nextKeyLuma, imgSI);
-      //_si->sideInfoChromaMC(prevChroma, currChroma, prevLuma, imgSI);
+      //_si->sideInfoMCI(prevLuma, nextKeyLuma, imgSI);
+      _si->chroma_MEMC(prevChroma, prevLuma,
+                       nextKeyChroma, nextKeyLuma,
+                       currChroma, imgSI);
 
-      fwrite(imgSI, _frameSize, 1, fWritePtr);
-      fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
       float currPSNRSI = calcPSNR(oriCurrFrame, imgSI, _frameSize);
       cout << "PSNR SI: " << currPSNRSI << endl;
       //float currPSNR = calcPSNR(oriCurrFrame, currLuma, _frameSize);
@@ -313,12 +311,12 @@ void Decoder::decodeWzFrame()
       dPSNRPrevUAvg += calcPSNR(oriCurrChroma, prevKeyChroma, chsize);
       dPSNRPrevVAvg += calcPSNR(oriCurrChroma+chsize,
                                 prevKeyChroma+chsize, chsize);
-      continue;
 
       // ---------------------------------------------------------------------
       // STAGE 3 - WZ Decode
       // ---------------------------------------------------------------------
       int tmp = getSyndromeData();
+      cout << tmp << "Bits from 'getSyndromeData()'" << endl;
 
       //cout << _numChnCodeBands << endl;
 
@@ -351,6 +349,7 @@ void Decoder::decodeWzFrame()
         dTotalRate += decodeLDPC(iDCTQ, iDCTResidual, iDecoded, x, y, iOffset);
 #   endif
 
+        cout << "TotalRate +=" << dTotalRate << endl;
         //temporal reconstruction
         _trans->invQuantization(iDecoded, iDecodedInvQ, iDCTResidual, x, y);
         _trans->invDctTransform(iDecodedInvQ, iDCTBuffer, false);
@@ -379,9 +378,10 @@ void Decoder::decodeWzFrame()
 
       cout << "side information quality " << currPSNRSI << endl;
 
-      //cout << "wyner-ziv frame quality " << currPSNR << endl;
+      cout << "PSNR WZ: ";
+      cout << calcPSNR(oriCurrFrame, currLuma, _frameSize) << endl;
 
-      fwrite(_fb->getCurrFrame(), _frameSize, 1, fWritePtr);
+      fwrite(currLuma, _frameSize, 1, fWritePtr);
       fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
 
       // copy curr buffers into prev buffer
@@ -517,19 +517,8 @@ int Decoder::getSyndromeData()
   // ---------------------------------------------------------------------------
   for (int j = 0; j < 4; j++) {
     for (int i = 0; i < 4; i++) {
-#   if !HARDWARE_FLOW
-      _maxValue[j][i] = _bs->read(11);
-#   endif
-
       if (QuantMatrix[_qp][j][i] != 0) {
-#   if HARDWARE_QUANTIZATION
         _quantStep[j][i] = 1 << (MaxBitPlane[j][i]+1-QuantMatrix[_qp][j][i]);
-#   else
-        int iInterval = 1 << QuantMatrix[_qp][j][i];
-
-        _quantStep[j][i] = (int)(ceil(double(2*abs(_maxValue[j][i]))/double(iInterval-1)));
-        _quantStep[j][i] = Max(_quantStep[j][i], MinQStepSize[_qp][j][i]);
-#   endif
       }
       else
         _quantStep[j][i] = 1;

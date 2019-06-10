@@ -31,7 +31,6 @@ SideInformation::SideInformation(Codec* codec, CorrModel* model,
   _p = atoi(configMap["SearchWindowSize"].c_str());
   _ss = atoi(configMap["SpatialSmoothing"].c_str());
   _nmv = _width * _height / (_blockSize * _blockSize);
-  _mvs = new mvinfo[_nmv];
 
   // for SI refinement
   _varList0 = new mvinfo[_width * _height / 64];
@@ -729,9 +728,6 @@ void SideInformation::getRefinedSideInfo(imgpel *imgPrevKey,
                                          imgpel *imgRefined,
                                          int iMode)
 {
-  int _width,_height;
-  _width           = _codec->getFrameWidth();
-  _height          = _codec->getFrameHeight();
   int iBlock       = 8;
   int iPadSize     = 40;
 
@@ -828,9 +824,6 @@ void SideInformation::getRefinedSideInfoProcess(imgpel* imgPrevBuffer,
                                                 mvinfo* varList,
                                                 int iMode)
 {
-  int _width,_height;
-  _width           = _codec->getFrameWidth();
-  _height          = _codec->getFrameHeight();
   int iBlock       = 4;
   int x,y,i,j;
   int iCx,iCy;

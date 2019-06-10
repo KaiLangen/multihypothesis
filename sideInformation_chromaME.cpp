@@ -2,8 +2,9 @@
 #include <iostream>
 #include <climits>
 
-#include "codec.h"
 #include "calculations.h"
+#include "codec.h"
+#include "corrModel.h"
 #include "decoder.h"
 #include "sideInformation.h"
 
@@ -168,7 +169,8 @@ SideInformation::ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
 
 void
 SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
-                    imgpel* refFrameV, imgpel* currFrameV)
+                    imgpel* refFrameV, imgpel* currFrameV,
+                    mvinfo* candidate)
 {
   int idx;
   int cnt = 0;
@@ -177,7 +179,7 @@ SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
   for (int y = 0; y <= _height - _blockSize; y += _blockSize) {
     for (int x = 0; x <= _width - _blockSize; x += _blockSize) {
       idx = y * _width + x;
-      ES(currFrameU, currFrameV, refFrameU, refFrameV, _mvs[cnt], _p, idx);
+      ES(currFrameU, currFrameV, refFrameU, refFrameV, candidate[cnt], _p, idx);
       cnt++;
     }
   }
@@ -185,43 +187,93 @@ SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* currChroma,
-                                  imgpel* imgPrevKey, imgpel* imgCurrFrame)
+void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
+                                  imgpel* nextChroma, imgpel* imgNextKey,
+                                  imgpel* currChroma, imgpel* imgCurrFrame)
 {
   if (_p == 0) {
     memcpy(imgCurrFrame, imgPrevKey, _frameSize);
     return;
   }
-  /* upsample the Chroma into new buffer */
-  imgpel* refUChroma = new imgpel[_frameSize];
-  imgpel* refVChroma = new imgpel[_frameSize];
+  mvinfo *varCandidate0 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
+  mvinfo *varCandidate1 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
+  imgpel* prevUChroma = new imgpel[_frameSize];
+  imgpel* prevVChroma = new imgpel[_frameSize];
+  imgpel* nextUChroma = new imgpel[_frameSize];
+  imgpel* nextVChroma = new imgpel[_frameSize];
   imgpel* currUChroma = new imgpel[_frameSize];
   imgpel* currVChroma = new imgpel[_frameSize];
-  imgpel* rUPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* rVPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* pUPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* pVPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* nUPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* nVPadded = new imgpel[(_width+80)*(_height+80)];
   imgpel* cUPadded = new imgpel[(_width+80)*(_height+80)];
   imgpel* cVPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* nextPadded = new imgpel[(_width+80)*(_height+80)];
   imgpel* prevPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* mcF = new imgpel[_frameSize];
+  imgpel* mcB = new imgpel[_frameSize];
 
+  /* upsample the Chroma into new buffer, and pad */
   int ww = _width>>1;
   int hh = _height>>1;
-  bilinear(prevChroma, refUChroma, ww, hh, ww, hh, 0, 0);
-  bilinear(prevChroma+(_frameSize>>2), refVChroma, ww, hh, ww, hh, 0, 0);
+  int chsize = _frameSize>>2;
+  bilinear(prevChroma, prevUChroma, ww, hh, ww, hh, 0, 0);
+  bilinear(prevChroma+chsize, prevVChroma, ww, hh, ww, hh, 0, 0);
+
+  bilinear(nextChroma, nextUChroma, ww, hh, ww, hh, 0, 0);
+  bilinear(nextChroma+chsize, nextVChroma, ww, hh, ww, hh, 0, 0);
 
   bilinear(currChroma, currUChroma, ww, hh, ww, hh, 0, 0);
-  bilinear(currChroma+(_frameSize>>2), currVChroma, ww, hh, ww, hh, 0, 0);
+  bilinear(currChroma+chsize, currVChroma, ww, hh, ww, hh, 0, 0);
+
   pad(currUChroma, cUPadded, 40);
   pad(currVChroma, cVPadded, 40);
-  pad(refUChroma, rUPadded, 40);
-  pad(refVChroma, rVPadded, 40);
+  pad(prevUChroma, pUPadded, 40);
+  pad(prevVChroma, pVPadded, 40);
+  pad(nextUChroma, nUPadded, 40);
+  pad(nextVChroma, nVPadded, 40);
   pad(imgPrevKey, prevPadded, 40);
+  pad(imgNextKey, nextPadded, 40);
 
-  ME(refUChroma, currUChroma, refVChroma, currVChroma);
+  ME(prevUChroma, currUChroma, prevVChroma, currVChroma, varCandidate0);
+  ME(nextUChroma, currUChroma, nextVChroma, currVChroma, varCandidate1);
   
-  for (int iter = 0; iter < _ss; iter++) 
-    spatialSmooth(rUPadded, rVPadded, cUPadded, cVPadded, _mvs, _blockSize, 40); 
+  for (int iter = 0; iter < _ss; iter++) { 
+    spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
+                  varCandidate0, _blockSize, 40); 
+    spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
+                  varCandidate1, _blockSize, 40); 
+  }
 
-  MC(prevPadded, imgCurrFrame, 40);
+  MC(prevPadded, mcF, varCandidate0, 40);
+  MC(nextPadded, mcB, varCandidate1, 40);
+
+  for (int iy = 0; iy < _height; iy++)
+    for (int ix = 0; ix < _width; ix++) {
+      int i = ix+iy*(_width);
+      imgCurrFrame[i] = (mcF[i] + mcB[i] + 1)/2;
+    }
+
+  _model->correlationNoiseModeling(mcF, mcB);
+  
+  // delete all buffers
+  delete []  prevUChroma;
+  delete []  prevVChroma;
+  delete []  nextUChroma;
+  delete []  nextVChroma;
+  delete []  currUChroma;
+  delete []  currVChroma;
+  delete []  pUPadded;
+  delete []  pVPadded;
+  delete []  nUPadded;
+  delete []  nVPadded;
+  delete []  cUPadded;
+  delete []  cVPadded;
+  delete []  nextPadded;
+  delete []  prevPadded;
+  delete []  mcF;
+  delete []  mcB;
 }
 
 // -----------------------------------------------------------------------------
@@ -389,34 +441,35 @@ const int SideInformation::_H[3][8][8] =
   }
 };
 
-void SideInformation::MC(imgpel* imgPrev, imgpel* imgDst, int padSize)
+void SideInformation::MC(imgpel* imgPrev, imgpel* imgDst,
+                         mvinfo* candidate, int padSize)
 {
   
   int cX, cY, mvX[3], mvY[3];
   int cand[3];
   for (int i = 0; i < _nmv; i++) {
     // get the "start" values: coordinates of the top-left pixel of each MB
-    cX   = _mvs[i].iCx;
-    cY   = _mvs[i].iCy;
+    cX   = candidate[i].iCx;
+    cY   = candidate[i].iCy;
 
     // cand0 is the current block
-    mvX[0]  = cX + _mvs[i].iMvx + padSize;
-    mvY[0]  = cY + _mvs[i].iMvy + padSize;
+    mvX[0]  = cX + candidate[i].iMvx + padSize;
+    mvY[0]  = cY + candidate[i].iMvy + padSize;
     // cand1 is above or below
     if (cY == 0) {
-      mvX[1]  = cX + _mvs[i + _width / _blockSize].iMvx + padSize;
-      mvY[1]  = cY + _mvs[i + _width / _blockSize].iMvy + padSize;
+      mvX[1]  = cX + candidate[i + _width / _blockSize].iMvx + padSize;
+      mvY[1]  = cY + candidate[i + _width / _blockSize].iMvy + padSize;
     } else {
-      mvX[1]  = cX + _mvs[i - _width / _blockSize].iMvx + padSize;
-      mvY[1]  = cY + _mvs[i - _width / _blockSize].iMvy + padSize;
+      mvX[1]  = cX + candidate[i - _width / _blockSize].iMvx + padSize;
+      mvY[1]  = cY + candidate[i - _width / _blockSize].iMvy + padSize;
     }
     // cand2 is left or right
     if (cX == 0) {
-      mvX[2]  = cX + _mvs[i + 1].iMvx + padSize;
-      mvY[2]  = cY + _mvs[i + 1].iMvy + padSize;
+      mvX[2]  = cX + candidate[i + 1].iMvx + padSize;
+      mvY[2]  = cY + candidate[i + 1].iMvy + padSize;
     } else {
-      mvX[2]  = cX + _mvs[i - 1].iMvx + padSize;
-      mvY[2]  = cY + _mvs[i - 1].iMvy + padSize;
+      mvX[2]  = cX + candidate[i - 1].iMvx + padSize;
+      mvY[2]  = cY + candidate[i - 1].iMvy + padSize;
     }
 
     // average all 3 candidates
@@ -440,10 +493,10 @@ SideInformation::MC(imgpel* imgPrev, imgpel* imgDst, int padSize)
   for (int i = 0; i < _nmv; i++) {
     // get the "start" values: coordinates of the top-left pixel of each MB
     // get the frame that the motion vector references, then increment it
-    cX   = _mvs[i].iCx;
-    cY   = _mvs[i].iCy;
-    mvX  = cX + _mvs[i].iMvx + padSize;
-    mvY  = cY + _mvs[i].iMvy + padSize;
+    cX   = candidate[i].iCx;
+    cY   = candidate[i].iCy;
+    mvX  = cX + candidate[i].iMvx + padSize;
+    mvY  = cY + candidate[i].iMvy + padSize;
     
     for (int j = 0; j < _blockSize; j++) {
       memcpy(imgDst + cX + (cY + j) * _width,

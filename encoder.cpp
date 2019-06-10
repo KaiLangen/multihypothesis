@@ -222,7 +222,6 @@ void Encoder::encodeWzFrame()
       // ---------------------------------------------------------------------
       computeResidue(residue, prevFrame, nextFrame, currFrame, _bs);
       _trans->dctTransform(residue, dctFrame, false);
-      updateMaxValue(dctFrame);
 
       // ---------------------------------------------------------------------
       // STAGE 2 - Quantization
@@ -565,7 +564,7 @@ void Encoder::generateSkipMask()
 # if HARDWARE_OPT
   int threshold = 2;
 # else // if !HARDWARE_OPT
-  int threshold = 5;
+  int threshold = 4;
 # endif // HARDWARE_OPT
 
   int* frame    = _fb->getQuantDctFrame();
