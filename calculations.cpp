@@ -48,3 +48,27 @@ int calcSAD(imgpel* blk1, imgpel* blk2, int width1, int width2,
     }
   return sad;
 }
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+int calcSAD(imgpel* blk1, imgpel* blk2, int px, int py, 
+            int rx,int ry, const int blocksize, int width, int height)
+{
+  int sad=0;
+  int cx,cy;
+  for(int y=0;y<blocksize;y++)
+    for(int x=0;x<blocksize;x++)
+    {
+      cx=px+x;
+      cy=py+y;
+      if(cx<=0)cx=0;
+      if(cx>width-1)cx=width-1;
+      if(cy<=0)cy=0;
+      if(cy>height-1)cy=height-1;
+
+      imgpel pel1=*(blk1+cx+cy*width);
+      imgpel pel2=*(blk2+(rx+x)+(ry+y)*width);
+      sad+=abs(pel1-pel2);
+    }
+  return sad;
+}

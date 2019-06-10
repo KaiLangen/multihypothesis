@@ -15,9 +15,17 @@ public:
   SideInformation(Codec* codec, CorrModel* model,
                   std::map<std::string, std::string> configMap);
 
-  void createSideInfo(imgpel* prevChroma, imgpel* currChroma,
-                      imgpel* imgPrevKey, imgpel* imgCurrFrame);
+  // MCI functions
+  void sideInfoChromaMC(imgpel* prevChroma, imgpel* currChroma,
+                        imgpel* imgPrevKey, imgpel* imgCurrFrame);
+  
+  void sideInfoMCI(imgpel* prevFrame, imgpel* nextFrame, imgpel* currFrame);
 
+  // Chroma-ME functions
+  void chroma_MEMC(imgpel* prevChroma, imgpel* currChroma,
+                   imgpel* imgPrevKey, imgpel* imgCurrFrame);
+
+  // general (both methods)
   void getResidualFrame(imgpel* bRefFrame, imgpel* fRef,
                         imgpel* curr, int* residue, int* rcList);
 
@@ -31,6 +39,30 @@ public:
 private:
   void lowpassFilter(imgpel* src, imgpel* dst, const int boxSize);
 
+  // MCI functions
+  void createSideInfoProcess(imgpel* prevFrame, imgpel* nextFrame,
+                             imgpel* MCfwd, imgpel* MCback, int iMode);
+
+  void forwardME(imgpel* prev, imgpel* curr,
+                 mvinfo* candidate, const int iRange);
+
+  void getRefinedSideInfoProcess(imgpel* imgPrevBuffer, imgpel* imgTmpRec,
+                                 imgpel* imgSI, imgpel* imgRefined,
+                                 mvinfo* varList, int iMode);
+
+  void bidirectME(imgpel* imgPrev, imgpel* imgNext, mvinfo* varCandidate,
+                  const int iPadSize, const int iRange);
+
+  void spatialSmooth(imgpel* imgPrev, imgpel* imgNext, mvinfo* varCandidate,
+                     const int iBlockSize, const int iPadSize);
+
+  void MC(imgpel* imgPrev, imgpel* imgNext, imgpel* imgDst,
+          imgpel* imgMCf, imgpel* imgMCb,
+          mvinfo* varCandidate, mvinfo* varCandidate2,
+          const int iPadSize, const int iRange, const int iMode);
+
+
+  // Chroma-ME functions
   int TSS(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
           mvinfo& mv, int step, int center);
 
@@ -48,13 +80,11 @@ private:
                      const int iBlockSize,
                      const int iPadSize);
 
+
+  // general (both methods)
   void pad(imgpel* src, imgpel* dst, const int iPadSize);
 
   void getSkippedRecFrame(imgpel* prevKey, imgpel* imgWZFrame, int* skipMask);
-
-  void getRefinedSideInfoProcess(imgpel* imgPrevBuffer, imgpel* imgTmpRec,
-                                 imgpel* imgSI, imgpel* imgRefined,
-                                 mvinfo* varList, int iMode);
 
   Codec* _codec;
   CorrModel* _model;

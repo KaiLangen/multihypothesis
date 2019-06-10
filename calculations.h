@@ -10,6 +10,9 @@ int calcSAD(imgpel* blk1, imgpel* blk2, int width, int blocksize);
 int calcSAD(imgpel* blk1, imgpel* blk2, int width1, int width2,
             int s1,int s2,int blocksize);
 
+int calcSAD(imgpel* blk1, imgpel* blk2, int px, int py, 
+            int rx,int ry, const int blocksize, int width, int height);
+
 int calcDist(imgpel* blk1, imgpel* blk2, int width1, int width2,
              int s1, int s2, int blocksize);
 

@@ -46,9 +46,9 @@ add_executable(decoder decoder.cpp
                        cavlcDec.cpp
                        corrModel.cpp
                        ldpcaDec.cpp
+                       sideInformation_MCI.cpp
+                       sideInformation_chromaME.cpp
                        dec_main.cpp
-                       sideInformation.cpp
-                       ME.cpp
 )
 target_link_libraries(decoder utils m)
 

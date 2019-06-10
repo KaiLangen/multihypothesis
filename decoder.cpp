@@ -219,7 +219,6 @@ void Decoder::decodeWzFrame()
     fread(prevKeyChroma, _frameSize>>1, 1, fKeyReadPtr);
 
     // read next key frame
-    fseek(fKeyReadPtr, (3*_frameSize)>>1, SEEK_CUR);
     fread(nextKeyLuma, _frameSize, 1, fKeyReadPtr);
     fread(nextKeyChroma, _frameSize>>1, 1, fKeyReadPtr);
 
@@ -298,7 +297,8 @@ void Decoder::decodeWzFrame()
       // STAGE 2 - Create side information
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
-      _si->createSideInfo(prevChroma, currChroma, prevLuma, imgSI);
+      _si->sideInfoMCI(prevLuma, nextKeyLuma, imgSI);
+      //_si->sideInfoChromaMC(prevChroma, currChroma, prevLuma, imgSI);
 
       fwrite(imgSI, _frameSize, 1, fWritePtr);
       fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
