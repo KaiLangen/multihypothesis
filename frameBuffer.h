@@ -2,25 +2,74 @@
 #ifndef ENCODER_INC_FRAMEBUFFER_H
 #define ENCODER_INC_FRAMEBUFFER_H
 
+#include <vector>
+
 #include "defs.h"
+
+class RecFrameBuffer
+{
+public:
+  RecFrameBuffer(int frameSize, int windowSize)
+  {
+    _windowSize = windowSize;
+    _currRec    = 0;
+    if (windowSize > 0)
+      _recFrames(windowSize, new imgpel[frameSize]);
+  }
+
+  ~RecFrameBuffer()
+  {
+    for (auto p : _recFrames)
+      delete [] p;
+  }
+
+  // increment currRec, and wrap if equal to buffSize
+  imgpel* getNextRec()
+  {
+    if (++_currRec >= _windowSize) _currRec = 0;
+    return _recFrames[_currRec];
+  }
+
+private:
+  vector<imgpel*> _recFrames;
+  int _windowSize;
+  int _currRef;
+};
 
 class FrameBuffer
 {
 public:
-  FrameBuffer(int width, int height, int gop = 0)
+  FrameBuffer(int width, int height, int windowSize = 0)
   {
     (void)gop;
-    _frameSize = width * height;
-    _prevFrame        = new imgpel[3*(_frameSize>>1)];
+    _frameSize        = width * height;
+    _prevKeyFrame     = new imgpel[3*(_frameSize>>1)];
     _currFrame        = new imgpel[3*(_frameSize>>1)];
-    _nextFrame        = new imgpel[3*(_frameSize>>1)];
+    _nextKeyFrame     = new imgpel[3*(_frameSize>>1)];
     _origFrame        = new imgpel[3*(_frameSize>>1)];
     _sideInfoFrame    = new imgpel[3*(_frameSize>>1)];
     _dctFrame         = new int[3*(_frameSize>>1)];
     _quantDctFrame    = new int[3*(_frameSize>>1)];
     _decFrame         = new int[3*(_frameSize>>1)];
     _invQuantDecFrame = new int[3*(_frameSize>>1)];
+    _recFrames        = new RecFrameBuffer(_frameSize, windowSize);
+
   };
+
+  ~FrameBuffer()
+  {
+    delete [] _prevKeyFrame;
+    delete [] _currFrame;
+    delete [] _nextKeyFrame;
+    delete [] _origFrame;
+    delete [] _sideInfoFrame;
+    delete [] _dctFrame;
+    delete [] _quantDctFrame;
+    delete [] _decFrame;
+    delete [] _invQuantDecFrame;
+    delete _recFrames;
+
+  }
 
   //  Luma
   imgpel*  getPrevFrame()        { return _prevFrame; };
@@ -32,6 +81,7 @@ public:
   int*     getQuantDctFrame()    { return _quantDctFrame; };
   int*     getDecFrame()         { return _decFrame; };
   int*     getInvQuantDecFrame() { return _invQuantDecFrame; };
+  RecFrameBuffer* getRecFrameBuffer() { return _recFrames; };
 
   // Chroma
   imgpel*  getPrevChroma()
@@ -52,10 +102,10 @@ public:
   { return _invQuantDecFrame + _frameSize; };
 
 private:
-  int _frameSize;
-  imgpel*  _prevFrame;
+  int      _frameSize;
+  imgpel*  _prevKeyFrame;
   imgpel*  _currFrame;
-  imgpel*  _nextFrame;
+  imgpel*  _nextKeyFrame;
   imgpel*  _origFrame;
   imgpel*  _sideInfoFrame;
 
@@ -63,6 +113,7 @@ private:
   int*     _quantDctFrame;
   int*     _decFrame;
   int*     _invQuantDecFrame;
+  RecFrameBuffer* _recFrames;
 };
 
 #endif // ENCODER_INC_FRAMEBUFFER_H
