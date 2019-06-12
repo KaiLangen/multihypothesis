@@ -116,8 +116,8 @@ SideInformation::ME(imgpel* refFrame, imgpel* currFrame,
 // -----------------------------------------------------------------------------
 void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
                                   imgpel* nextChroma, imgpel* imgNextKey,
-                                  imgpel* currChroma, imgpel* imgCurrFrame,
-                                  bool isDoubleMV)
+                                  RecFrameBuffer* recFrames,
+				  imgpel* currChroma, imgpel* imgCurrFrame)
 {
   if (_p == 0) {
     memcpy(imgCurrFrame, imgPrevKey, _frameSize);
@@ -143,6 +143,9 @@ void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
   imgpel* prevPadded = new imgpel[(_width+80)*(_height+80)];
   imgpel* mcF = new imgpel[_frameSize];
   imgpel* mcB = new imgpel[_frameSize];
+
+  vector< pair<int,int> > varMVList;
+  vector<float>         varWeight;
 
   /* upsample the Chroma into new buffer, and pad */
   int ww = _width>>1;

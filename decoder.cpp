@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <cstring>
+#include <vector>
 
 #include "decoder.h"
 #include "fileManager.h"
@@ -170,14 +171,14 @@ void Decoder::decodeWzFrame()
   double cpuTime;
 
 // Luma Buffers
-  imgpel* imgRefinedSI  = new imgpel[_frameSize];
-  imgpel* prevLuma      = new imgpel[_frameSize];
-  imgpel* nextLuma      = new imgpel[_frameSize];
   imgpel* oriCurrFrame  = _fb->getorigFrame();
   imgpel* currLuma      = _fb->getCurrFrame();
   imgpel* prevKeyLuma   = _fb->getPrevFrame();
   imgpel* nextKeyLuma   = _fb->getNextFrame();
+  imgpel* prevLuma;
+  imgpel* nextLuma;
   imgpel* imgSI         = _fb->getSideInfoFrame();
+  imgpel* imgRefinedSI  = new imgpel[_frameSize];
   int* iDCT             = _fb->getDctFrame();
   int* iDCTQ            = _fb->getQuantDctFrame();
   int* iDecoded         = _fb->getDecFrame();
@@ -190,14 +191,15 @@ void Decoder::decodeWzFrame()
   imgpel* currChroma    = _fb->getCurrChroma();
   imgpel* prevKeyChroma = _fb->getPrevChroma();
   imgpel* nextKeyChroma = _fb->getNextChroma();
-  imgpel* prevChroma    = new imgpel[_frameSize>>1];
-  imgpel* nextChroma    = new imgpel[_frameSize>>1];
+  imgpel* prevChroma;
+  imgpel* nextChroma;
   int* iDecodedU        = new int[_frameSize>>2];
   int* iDecodedV        = new int[_frameSize>>2];
   int* iDctU            = new int[_frameSize>>2];
   int* iDctV            = new int[_frameSize>>2];
   int* iQuantU          = new int[_frameSize>>2];
   int* iQuantV          = new int[_frameSize>>2];
+  RecFrameBuffer* recFrames = _fb->getRecFrameBuffer();
 
   int x,y;
   double totalrate=0;
@@ -231,17 +233,21 @@ void Decoder::decodeWzFrame()
     fread(nextKeyLuma, _frameSize, 1, fKeyReadPtr);
     fread(nextKeyChroma, _frameSize>>1, 1, fKeyReadPtr);
 
-    // copy prevKey to prev and write to output file
-    memcpy(prevLuma, prevKeyLuma, _frameSize);
-    memcpy(prevChroma, prevKeyChroma, _frameSize>>1);
+    // write prevKey to output file
     fwrite(prevKeyLuma, _frameSize, 1, fWritePtr);
     fwrite(prevKeyChroma, _frameSize>>1, 1, fWritePtr);
+
+    // assign ref pointers
+    prevLuma = prevKeyLuma;
+    prevChroma = prevKeyChroma;
+    nextLuma = nextKeyLuma;
+    nextChroma = nextKeyChroma;
 
     int idx = 2;
     while (idx <= _gop) {
       if (idx == _gop) {
-        memcpy(nextLuma, nextKeyLuma, _frameSize);
-        memcpy(nextChroma, nextKeyChroma, _frameSize>>1);
+        nextLuma = nextKeyLuma;
+        nextChroma = nextKeyChroma;
         idx--;
         continue;
       }
@@ -314,22 +320,9 @@ void Decoder::decodeWzFrame()
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
       if (idx % 2 == 0) {
-        if (_MEMode == 0) {
-          _si->chroma_MEMC(prevChroma, prevLuma,
-                           nextKeyChroma, nextKeyLuma,
-                           currChroma, imgSI, _doubleMV);
-        } else if (_MEMode == 1) {
-          fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
-          fread(currLuma, _frameSize, 1, oracleReadPtr);
-          _si->oracle_MEMC(prevLuma, nextKeyLuma, currLuma, imgSI);
-        } else if (_MEMode == 2) {
-          fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
-          fseek(oracleReadPtr, _frameSize, SEEK_CUR);
-          fread(currChroma, _frameSize>>1, 1, oracleReadPtr);
-          _si->chroma_MEMC(prevChroma, prevLuma,
-                           nextKeyChroma, nextKeyLuma,
-                           currChroma, imgSI, _doubleMV);
-        }
+        _si->chroma_MEMC(prevChroma, prevKeyLuma,
+                         nextKeyChroma, nextKeyLuma,
+                         recFrames, currChroma, imgSI);
       } else {
         _si->sideInfoMCI(prevLuma, nextLuma, imgSI);
       }
@@ -410,24 +403,34 @@ void Decoder::decodeWzFrame()
       cout << "PSNR WZ: ";
       cout << calcPSNR(oriCurrFrame, currLuma, _frameSize) << endl << endl;
 
+      // add currFrame to frameBuffer
+      imgpel* tmp = recFrames->getNextRec();
+      memcpy(tmp, currLuma, _frameSize);
+      memcpy(tmp+_frameSize, currChroma, _frameSize>>1);
+
       // SI was generated using Chroma-ME, go back a frame
       if (idx % 2 == 0) {
-        memcpy(nextLuma, currLuma, _frameSize);
-        memcpy(nextChroma, currChroma, _frameSize>>1);
+        // update nextFrame ptr
+        nextLuma = tmp;
+        nextChroma = tmp + _frameSize;
         idx--;
-      // SI was generated using MCI,
-      // write curr and next frames, then go forward three frame
-      } else if (idx < _gop-1) {
+      }
+      // SI was generated using MCI
+      else if (idx < _gop-1) {
+	// update prevFrame ptr
+	prevLuma = nextLuma;
+	prevChroma = nextChroma;
+
+        // write curr and next frames, then skip forward three frame
         fwrite(currLuma, _frameSize, 1, fWritePtr);
         fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
         fwrite(nextLuma, _frameSize, 1, fWritePtr);
         fwrite(nextChroma, _frameSize>>1, 1, fWritePtr);
-        memcpy(prevLuma, nextLuma, _frameSize);
-        memcpy(prevChroma, nextChroma, _frameSize>>1);
         idx += 3;
-      // SI was generated using MCI and curr frame is LAST in the GOP,
-      // write only the current frame
-      } else {
+      }
+      // SI was generated using MCI and curr frame is LAST in the GOP
+      else {
+        // write only the current frame to output
         fwrite(currLuma, _frameSize, 1, fWritePtr);
         fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
         idx += 3;
