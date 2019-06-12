@@ -166,6 +166,7 @@ void Decoder::decodeWzFrame()
 // Luma Buffers
   imgpel* imgRefinedSI  = new imgpel[_frameSize];
   imgpel* prevLuma      = new imgpel[_frameSize];
+  imgpel* nextLuma      = new imgpel[_frameSize];
   imgpel* oriCurrFrame  = _fb->getorigFrame();
   imgpel* currLuma      = _fb->getCurrFrame();
   imgpel* prevKeyLuma   = _fb->getPrevFrame();
@@ -184,6 +185,7 @@ void Decoder::decodeWzFrame()
   imgpel* prevKeyChroma = _fb->getPrevChroma();
   imgpel* nextKeyChroma = _fb->getNextChroma();
   imgpel* prevChroma    = new imgpel[_frameSize>>1];
+  imgpel* nextChroma    = new imgpel[_frameSize>>1];
   int* iDecodedU        = new int[_frameSize>>2];
   int* iDecodedV        = new int[_frameSize>>2];
   int* iDctU            = new int[_frameSize>>2];
@@ -226,7 +228,14 @@ void Decoder::decodeWzFrame()
     fwrite(prevKeyLuma, _frameSize, 1, fWritePtr);
     fwrite(prevKeyChroma, _frameSize>>1, 1, fWritePtr);
 
-    for (int idx = 1; idx < _gop; idx++) {
+    int idx = 2;
+    while (idx <= _gop) {
+      if (idx == _gop) {
+        memcpy(nextLuma, nextKeyLuma, _frameSize);
+        memcpy(nextChroma, nextKeyChroma, _frameSize>>1);
+        idx--;
+        continue;
+      }
       // Start decoding the WZ frame
       int wzFrameNo = keyFrameNo*_gop + idx;
 
@@ -295,10 +304,13 @@ void Decoder::decodeWzFrame()
       // STAGE 2 - Create side information
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
-      //_si->sideInfoMCI(prevLuma, nextKeyLuma, imgSI);
-      _si->chroma_MEMC(prevChroma, prevLuma,
-                       nextKeyChroma, nextKeyLuma,
-                       currChroma, imgSI);
+      if (idx % 2 == 0) {
+        _si->chroma_MEMC(prevChroma, prevLuma,
+                         nextKeyChroma, nextKeyLuma,
+                         currChroma, imgSI);
+      } else {
+        _si->sideInfoMCI(prevLuma, nextLuma, imgSI);
+      }
 
       float currPSNRSI = calcPSNR(oriCurrFrame, imgSI, _frameSize);
       cout << "PSNR SI: " << currPSNRSI << endl;
@@ -349,7 +361,7 @@ void Decoder::decodeWzFrame()
         dTotalRate += decodeLDPC(iDCTQ, iDCTResidual, iDecoded, x, y, iOffset);
 #   endif
 
-        cout << "TotalRate +=" << dTotalRate << endl;
+        cout << "Curr Frame Rate =" << dTotalRate << endl;
         //temporal reconstruction
         _trans->invQuantization(iDecoded, iDecodedInvQ, iDCTResidual, x, y);
         _trans->invDctTransform(iDecodedInvQ, iDCTBuffer, false);
@@ -373,20 +385,35 @@ void Decoder::decodeWzFrame()
       }
 
       totalrate += dTotalRate;
-      cout << endl;
-      cout << "total bytes (Y/frame): " << dTotalRate << " Kbytes" << endl;
+      cout << "Curr bytes (Y frame): " << dTotalRate << " Kbytes" << endl;
 
       cout << "side information quality " << currPSNRSI << endl;
 
       cout << "PSNR WZ: ";
-      cout << calcPSNR(oriCurrFrame, currLuma, _frameSize) << endl;
+      cout << calcPSNR(oriCurrFrame, currLuma, _frameSize) << endl << endl;
 
-      fwrite(currLuma, _frameSize, 1, fWritePtr);
-      fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
-
-      // copy curr buffers into prev buffer
-      memcpy(prevLuma, currLuma, _frameSize);
-      memcpy(prevChroma, currChroma, _frameSize>>1);
+      // SI was generated using Chroma-ME, go back a frame
+      if (idx % 2 == 0) {
+        memcpy(nextLuma, currLuma, _frameSize);
+        memcpy(nextChroma, currChroma, _frameSize>>1);
+        idx--;
+      // SI was generated using MCI,
+      // write curr and next frames, then go forward three frame
+      } else if (idx < _gop-1) {
+        fwrite(currLuma, _frameSize, 1, fWritePtr);
+        fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
+        fwrite(nextLuma, _frameSize, 1, fWritePtr);
+        fwrite(nextChroma, _frameSize>>1, 1, fWritePtr);
+        memcpy(prevLuma, nextLuma, _frameSize);
+        memcpy(prevChroma, nextChroma, _frameSize>>1);
+        idx += 3;
+      // SI was generated using MCI and curr frame is LAST in the GOP,
+      // write only the current frame
+      } else {
+        fwrite(currLuma, _frameSize, 1, fWritePtr);
+        fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
+        idx += 3;
+      }
     }
   }
 

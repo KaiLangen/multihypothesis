@@ -206,7 +206,14 @@ void Encoder::encodeWzFrame()
     fseek(fKeyPtr, (3*_frameSize)>>1, SEEK_CUR);
     fread(nextFrame, _frameSize, 1, fKeyPtr);
     fread(nextChroma, _frameSize>>1, 1, fKeyPtr);
-    for (int idx = 1; idx < _gop; idx++) {
+    int idx = 2;
+    while (idx <= _gop) {
+      // don't encode the final key-frame
+      if (idx == _gop) {
+        idx--;
+        continue;
+      }
+
       // Start encoding the WZ frame
       int wzFrameNo = keyFrameNo*_gop + idx;
 
@@ -334,6 +341,10 @@ void Encoder::encodeWzFrame()
         bitsV += dummy;
       }
 # endif // HARDWARE_FLOW
+      if (idx % 2 == 0)
+        idx--;
+      else
+        idx += 3;
     } // Finish encoding the WZ frame
   }
 

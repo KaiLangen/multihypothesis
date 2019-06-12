@@ -215,7 +215,7 @@ readConfig(string filename, bool isEnc)
       if (numFrames <= 0)
         throw invalid_argument("Invalid number of frames");
       int gop = atoi(configMap["Gop"].c_str());
-      if (gop < 2)
+      if (gop < 4 || gop % 2 == 1)
         throw invalid_argument("Invalid GOP size");
       string seqType = configMap["SequenceType"];
       if ((seqType.compare("CIF") != 0) && (seqType.compare("QCIF") != 0))
