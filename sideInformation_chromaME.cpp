@@ -1,6 +1,6 @@
-#include <string.h>
 #include <iostream>
 #include <climits>
+#include <cstring>
 
 #include "calculations.h"
 #include "codec.h"
@@ -11,70 +11,150 @@
 
 static int find_min(unsigned int costs[9])
 {
-    unsigned int minimum = costs[0];
-    int location = 0;
-    for(int c = 1; c < 9; ++c)
+  unsigned int minimum = costs[0];
+  int location = 0;
+  for(int c = 1; c < 9; ++c)
+  {
+    if(costs[c] < minimum)
     {
-        if(costs[c] < minimum)
-        {
-            minimum = costs[c];
-            location = c;
-        }
+      minimum = costs[c];
+      location = c;
     }
-    return location;
+  }
+  return location;
+}
+
+/**
+ * Three Step Search Algorithm
+ * description: full-pixel motion search. Looks for the block in ref
+ *     that is closest to the block in trg at the center coordinates.
+ * param:
+ *     trg       - target frame
+ *     ref       - reference frame
+ *     mv        - motion vector reference object
+ *     step      - starting step size for TSS
+ *     center    - coordinates of the upper-left pixel in the target block
+ *     width     - width of the frame(s)
+ *     height    - height of the frame(s)
+ *     blockSize - size of the block (height and width).
+ *
+ *
+ */
+void SideInformation::TSS(imgpel* trgU, imgpel* trgV,
+                          imgpel* refU, imgpel* refV,
+                          mvinfo& mv, int step, int center)
+{
+  // search start location
+  unsigned int costs[9] = {UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX,
+                 UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX};
+  int locations[9] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};
+  int loc, og, cx, cy, x, y;
+  og = center;
+  // calculate the first center
+  // avoid recalculating the center within the loop
+  costs[4] = calcSAD(&trgU[og], &refU[center], _width, _blockSize);
+  costs[4] += calcSAD(&trgV[og], &refV[center], _width, _blockSize);
+  locations[4] = center;
+
+  while(step >= 1)
+  {
+    // center coordinates in the image = (cy, cx)
+    cy = center / _width;
+    cx = center % _width;
+    // coordinates in the cost matrix = (i,j)
+    for(int i = 0; i < 3; ++i)
+    {
+      for(int j = 0; j < 3; ++j)
+      {
+        // the 9 pts formed by stepping away from the center = (y, x)
+        //
+        // (cy-step, cx-step), (cy-step,      cx), (cy-step, cx+step)
+        // (cy     , cx-step), (cy     ,      cx), (cy     , cx+step)
+        // (cy+step, cx-step), (cy+step,      cx), (cy+step, cx+step)
+        y = cy + (i-1) * step;
+        x = cx + (j-1) * step;
+
+        // check if the pt coordinates fall outside of the image
+        if(x < 0 || x >= _width - _blockSize ||
+           y < 0 || y >= _height - _blockSize ||
+           (i == 1 && j == 1))
+        {
+          continue;
+        }
+        costs[i*3 + j] = calcSAD(&trgU[og],
+                                 &refU[y*_width + x],
+                                 _width,
+                                 _blockSize);
+        costs[i*3 + j] += calcSAD(&trgV[og],
+                                 &refV[y*_width + x],
+                                 _width,
+                                 _blockSize);
+        locations[i*3 + j] = y*_width + x;
+      }
+    }
+    // re-center the search window on the local minimum
+    loc = find_min(costs);
+    center = locations[loc];
+    step /= 2;
+
+    // set the center and location
+    costs[4] = costs[loc];
+    locations[4] = center;
+  }
+
+  x = og % _width;
+  y = og / _width;
+  cx = center % _width;
+  cy = center / _width;
+  // set old coordinates in MV
+  mv.iCx = x;
+  mv.iCy = y;
+  // MV is new location - original location
+  mv.iMvx = cx - x;
+  mv.iMvy = cy - y;
 }
 
 void
-SideInformation::ES(mvinfo& mv, int p, int center,
-                    imgpel* ref1, imgpel* trg1,
-                    imgpel* ref2=0, imgpel* trg2=0)
+SideInformation::ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
+                    mvinfo& mv, int p, int center, int pad)
 {
-    // search start location
-    int cx, cy, x, y, loc;
-    unsigned int cost;
-    unsigned int mincost = UINT_MAX;
-    cy = center / _width;
-    cx = center % _width;
-    for(int i = -p; i < p; ++i)
+  // search start location
+  int cx, cy, x, y, loc;
+  unsigned int cost;
+  unsigned int mincost = UINT_MAX;
+  int paddedWidth = (_width+2*pad);
+  cy = center / paddedWidth;
+  cx = center % paddedWidth;
+  for(int i = -p; i < p; ++i)
+  {
+    for(int j = -p; j < p; ++j)
     {
-        for(int j = -p; j < p; ++j)
-        {
-            y = cy + i;
-            x = cx + j;
+      y = cy + i;
+      x = cx + j;
 
-            // check if the pt coordinates fall outside of the image
-            if(x < 0 || x >= _width - _blockSize ||
-               y < 0 || y >= _height - _blockSize ||
-               (i == 1 && j == 1))
-            {
-                continue;
-            }
-            cost = calcSAD(&trg1[center],
-                           &ref1[y*_width + x],
-                           _width,
-                           _blockSize);
-            if (trg2) {
-              cost += calcSAD(&trg2[center],
-                              &ref2[y*_width + x],
-                              _width,
-                              _blockSize);
-            }
-            if (cost < mincost) {
-              loc = y * _width + x;
-              mincost = cost;
-            }
-        }
+      cost = calcSAD(&trgU[center],
+                     &refU[y*paddedWidth + x],
+                     paddedWidth,
+                     _blockSize);
+      cost += calcSAD(&trgV[center],
+                      &refV[y*paddedWidth + x],
+                      paddedWidth,
+                      _blockSize);
+      if (cost < mincost) {
+        loc = y * paddedWidth + x;
+        mincost = cost;
+      }
     }
+  }
 
-    // set the center and location
-    x = loc % _width;
-    y = loc / _width;
-    mv.iCx = cx;
-    mv.iCy = cy;
-    // MV is new location - original location
-    mv.iMvx = x - cx;
-    mv.iMvy = y - cy;
-    mv.fDist = (float)mincost;
+  // set the center and location
+  x = loc % paddedWidth;
+  y = loc / paddedWidth;
+  mv.iCx = cx;
+  mv.iCy = cy;
+  // MV is new location - original location
+  mv.iMvx = x - cx;
+  mv.iMvy = y - cy;
 }
 
 void
@@ -83,201 +163,86 @@ SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
                     mvinfo* candidate)
 {
   int idx;
-  int c = 0;
-  /* for every block, search each reference
-   * frame and find the best matching block. */
-  for (int y = 0; y <= _height - _blockSize; y += _blockSize) {
-    for (int x = 0; x <= _width - _blockSize; x += _blockSize) {
-      idx = y * _width + x;
-      ES(candidate[c], _p, idx, refFrameU, currFrameU, refFrameV, currFrameV);
-      c++;
-    }
-  }
-}
-
-void
-SideInformation::ME(imgpel* refFrame, imgpel* currFrame,
-                    mvinfo* candidate)
-{
-  int idx;
-  int c = 0;
-  /* for every block, search each reference
-   * frame and find the best matching block. */
-  for (int y = 0; y <= _height - _blockSize; y += _blockSize) {
-    for (int x = 0; x <= _width - _blockSize; x += _blockSize) {
-      idx = y * _width + x;
-      ES(candidate[c], _p, idx, refFrame, currFrame);
-      c++;
+  int cnt = 0;
+  int pad = 40;
+  int paddedWidth = (2*pad + _width);
+  for (int y = pad; y <= pad + _height - _blockSize; y += _blockSize) {
+    for (int x = pad; x <= pad + _width - _blockSize; x += _blockSize) {
+      idx = y * paddedWidth + x;
+      ES(currFrameU, currFrameV, refFrameU, refFrameV,
+         candidate[cnt], _p, idx, 40);
+      cnt++;
     }
   }
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
-                                  imgpel* nextChroma, imgpel* imgNextKey,
-                                  RecFrameBuffer* recFrames,
-				  imgpel* currChroma, imgpel* imgCurrFrame)
+void SideInformation::chroma_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
 {
   if (_p == 0) {
-    memcpy(imgCurrFrame, imgPrevKey, _frameSize);
+    memcpy(sideInfo, refFrames->_prevKeyFrame[0], 3*(_frameSize>>1));
     return;
   }
-  mvinfo *varCandidate0 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
-  mvinfo *varCandidate1 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
-  mvinfo *varCandidate2 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
-  mvinfo *varCandidate3 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
-  imgpel* prevUChroma = new imgpel[_frameSize];
-  imgpel* prevVChroma = new imgpel[_frameSize];
-  imgpel* nextUChroma = new imgpel[_frameSize];
-  imgpel* nextVChroma = new imgpel[_frameSize];
-  imgpel* currUChroma = new imgpel[_frameSize];
-  imgpel* currVChroma = new imgpel[_frameSize];
-  imgpel* pUPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* pVPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* nUPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* nVPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* cUPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* cVPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* nextPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* prevPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* mcF = new imgpel[_frameSize];
-  imgpel* mcB = new imgpel[_frameSize];
-
-  vector< pair<int,int> > varMVList;
-  vector<float>         varWeight;
-
-  /* upsample the Chroma into new buffer, and pad */
   int ww = _width>>1;
   int hh = _height>>1;
   int chsize = _frameSize>>2;
-  bilinear(prevChroma, prevUChroma, ww, hh, ww, hh, 0, 0);
-  bilinear(prevChroma+chsize, prevVChroma, ww, hh, ww, hh, 0, 0);
-
-  bilinear(nextChroma, nextUChroma, ww, hh, ww, hh, 0, 0);
-  bilinear(nextChroma+chsize, nextVChroma, ww, hh, ww, hh, 0, 0);
+  int padSize = 40;
+  imgpel* currUChroma = new imgpel[_frameSize];
+  imgpel* currVChroma = new imgpel[_frameSize];
+  imgpel* mc1 = new imgpel[_frameSize];
+  imgpel* mc2 = new imgpel[_frameSize];
+  auto currFrame = refFrames->_currFrame;
+  auto prevKey = refFrames->_prevKeyFrame;
+  auto nextKey = refFrames->_nextKeyFrame;
+  imgpel* currChroma = currFrame[0] + _frameSize;
 
   bilinear(currChroma, currUChroma, ww, hh, ww, hh, 0, 0);
   bilinear(currChroma+chsize, currVChroma, ww, hh, ww, hh, 0, 0);
+  pad(currUChroma, currFrame[1], padSize);
+  pad(currVChroma, currFrame[2], padSize);
+  pad(currFrame[0], currFrame[3], padSize);
 
-  pad(currUChroma, cUPadded, 40);
-  pad(currVChroma, cVPadded, 40);
-  pad(prevUChroma, pUPadded, 40);
-  pad(prevVChroma, pVPadded, 40);
-  pad(nextUChroma, nUPadded, 40);
-  pad(nextVChroma, nVPadded, 40);
-  pad(imgPrevKey, prevPadded, 40);
-  pad(imgNextKey, nextPadded, 40);
-
-  if (isDoubleMV) {
-    ME(prevUChroma, currUChroma, varCandidate0);
-    ME(prevVChroma, currVChroma, varCandidate1);
-    ME(nextUChroma, currUChroma, varCandidate2);
-    ME(nextVChroma, currVChroma, varCandidate3);
-
-    for (int iter = 0; iter < _ss; iter++) {
-      spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
-                    varCandidate0, _blockSize, 40);
-      spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
-                    varCandidate1, _blockSize, 40);
-      spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
-                    varCandidate2, _blockSize, 40);
-      spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
-                    varCandidate3, _blockSize, 40);
-    }
-    mvinfo* mvs[4] = {varCandidate0, varCandidate1, varCandidate2, varCandidate3};
-    imgpel* refs[4] = {prevPadded, prevPadded, nextPadded, nextPadded};
-    MC(refs, mvs, imgCurrFrame, 40, 4);
-    MC(prevPadded, mcF, varCandidate0, 40);
-    MC(nextPadded, mcB, varCandidate2, 40);
-  } else {
-    ME(prevUChroma, currUChroma, prevVChroma, currVChroma, varCandidate0);
-    ME(nextUChroma, currUChroma, nextVChroma, currVChroma, varCandidate1);
-
-    for (int iter = 0; iter < _ss; iter++) {
-      spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
-                    varCandidate0, _blockSize, 40);
-      spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
-                    varCandidate1, _blockSize, 40);
-    }
-    mvinfo* mvs[2] = {varCandidate0, varCandidate1};
-    imgpel* refs[2] = {prevPadded, nextPadded};
-    MC(refs, mvs, imgCurrFrame, 40, 2);
-    MC(prevPadded, mcF, varCandidate0, 40);
-    MC(nextPadded, mcB, varCandidate1, 40);
+  vector<mvinfo*> mvs;
+  vector<imgpel*> refs;
+  // prev Key
+  mvs.push_back(new mvinfo[_nmv]);
+  refs.push_back(prevKey[3]);
+  ME(prevKey[1], currFrame[1], prevKey[2], currFrame[2], mvs.back());
+  for (int iter = 0; iter < _ss; iter++) {
+    spatialSmooth(prevKey[1], prevKey[2], currFrame[1], currFrame[2],
+                  mvs.back(), _blockSize, padSize); 
   }
 
-  _model->correlationNoiseModeling(mcF, mcB);
+  // next Key
+  mvs.push_back(new mvinfo[_nmv]);
+  refs.push_back(nextKey[3]);
+  ME(nextKey[1], currFrame[1], nextKey[2], currFrame[2], mvs.back());
+  for (int iter = 0; iter < _ss; iter++) {
+    spatialSmooth(nextKey[1], nextKey[2], currFrame[1], currFrame[2],
+                  mvs.back(), _blockSize, padSize);
+  }
 
-  // delete all buffers
-  delete [] varCandidate0;
-  delete [] varCandidate1;
-  delete [] varCandidate2;
-  delete [] varCandidate3;
-  delete [] prevUChroma;
-  delete [] prevVChroma;
-  delete [] nextUChroma;
-  delete [] nextVChroma;
+  // reconstructed WZ frames
+  for(auto it = refFrames->begin(); it != refFrames->end(); it++)
+  {
+    mvs.push_back(new mvinfo[_nmv]);
+    refs.push_back((*it)[3]);
+    ME((*it)[1], currFrame[1], (*it)[2], currFrame[2], mvs.back());
+    for (int iter = 0; iter < _ss; iter++) {
+      spatialSmooth((*it)[1], (*it)[2], currFrame[1], currFrame[2],
+                    mvs.back(), _blockSize, padSize); 
+    }
+  }
+  MC(sideInfo, mvs, refs, padSize);
+  MC(mc1, mvs[0], refs[0], padSize);
+  MC(mc2, mvs[1], refs[1], padSize);
+
+  _model->correlationNoiseModeling(mc1, mc2);
   delete [] currUChroma;
   delete [] currVChroma;
-  delete [] pUPadded;
-  delete [] pVPadded;
-  delete [] nUPadded;
-  delete [] nVPadded;
-  delete [] cUPadded;
-  delete [] cVPadded;
-  delete [] nextPadded;
-  delete [] prevPadded;
-  delete [] mcF;
-  delete [] mcB;
-}
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-void SideInformation::oracle_MEMC(imgpel* imgPrevKey, imgpel* imgNextKey,
-                                  imgpel* currLuma, imgpel* imgResult)
-{
-  if (_p == 0) {
-    memcpy(imgResult, imgPrevKey, _frameSize);
-    return;
-  }
-  mvinfo *varCandidate0 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
-  mvinfo *varCandidate1 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
-  imgpel* nextPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* prevPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* currPadded = new imgpel[(_width+80)*(_height+80)];
-  imgpel* mcF = new imgpel[_frameSize];
-  imgpel* mcB = new imgpel[_frameSize];
-
-  pad(imgPrevKey, prevPadded, 40);
-  pad(imgNextKey, nextPadded, 40);
-  pad(currLuma, currPadded, 40);
-
-  ME(imgPrevKey, currLuma, varCandidate0);
-  ME(imgNextKey, currLuma, varCandidate1);
-
-  for (int iter = 0; iter < _ss; iter++) {
-    spatialSmooth(prevPadded, currPadded,
-                  varCandidate0, _blockSize, 40);
-    spatialSmooth(nextPadded, currPadded,
-                  varCandidate1, _blockSize, 40);
-  }
-
-  MC(prevPadded, mcF, varCandidate0, 40);
-  MC(nextPadded, mcB, varCandidate1, 40);
-
-  mvinfo* mvs[2] = {varCandidate0, varCandidate1};
-  imgpel* refs[2] = {prevPadded, nextPadded};
-  MC(refs, mvs, imgResult, 40, 2);
-
-  _model->correlationNoiseModeling(mcF, mcB);
-
-  // delete all buffers
-  delete []  nextPadded;
-  delete []  prevPadded;
-  delete []  currPadded;
-  delete []  mcF;
-  delete []  mcB;
+  for (auto m : mvs)
+    delete [] m;
 }
 
 // -----------------------------------------------------------------------------
@@ -302,14 +267,14 @@ void SideInformation::spatialSmooth(imgpel* rU, imgpel* rV, imgpel* cU, imgpel*c
   imgpel* cUBuffer  = new imgpel[(_width+2*iPadSize)*(_height+2*iPadSize)*4];
   imgpel* cVBuffer  = new imgpel[(_width+2*iPadSize)*(_height+2*iPadSize)*4];
 
-  bilinear(rU,rUBuffer, _width+2*iPadSize, _height+2*iPadSize,
-                        _width+2*iPadSize, _height+2*iPadSize, 0, 0);
-  bilinear(rV,rVBuffer, _width+2*iPadSize, _height+2*iPadSize,
-                        _width+2*iPadSize, _height+2*iPadSize, 0, 0);
-  bilinear(cU,cUBuffer, _width+2*iPadSize, _height+2*iPadSize,
-                        _width+2*iPadSize, _height+2*iPadSize, 0, 0);
-  bilinear(cV,cVBuffer, _width+2*iPadSize, _height+2*iPadSize,
-                        _width+2*iPadSize, _height+2*iPadSize, 0, 0);
+  bilinear(rU, rUBuffer, _width+2*iPadSize, _height+2*iPadSize,
+                         _width+2*iPadSize, _height+2*iPadSize, 0, 0);
+  bilinear(rV, rVBuffer, _width+2*iPadSize, _height+2*iPadSize,
+                         _width+2*iPadSize, _height+2*iPadSize, 0, 0);
+  bilinear(cU, cUBuffer, _width+2*iPadSize, _height+2*iPadSize,
+                         _width+2*iPadSize, _height+2*iPadSize, 0, 0);
+  bilinear(cV, cVBuffer, _width+2*iPadSize, _height+2*iPadSize,
+                         _width+2*iPadSize, _height+2*iPadSize, 0, 0);
 
   for (int j = 0; j < _height/iBlockSize; j++)
     for (int i = 0; i < _width/iBlockSize; i++) {
@@ -490,55 +455,33 @@ void SideInformation::MC(imgpel* imgPrev, imgpel* imgDst,
 }
 #else
 void
-SideInformation::MC(imgpel* imgPrev, imgpel* imgDst, int padSize)
-{
-  int cX, cY, mvX, mvY;
-  for (int i = 0; i < _nmv; i++) {
-    // get the "start" values: coordinates of the top-left pixel of each MB
-    // get the frame that the motion vector references, then increment it
-    cX   = candidate[i].iCx;
-    cY   = candidate[i].iCy;
-    mvX  = cX + candidate[i].iMvx + padSize;
-    mvY  = cY + candidate[i].iMvy + padSize;
-
-    for (int j = 0; j < _blockSize; j++) {
-      memcpy(imgDst + cX + (cY + j) * _width,
-             imgPrev + mvX + (mvY + j) * (2*padSize+_width),
-             _blockSize);
-    }
-  }
-}
-#endif
-
-void
-SideInformation::MC(imgpel* refs[], mvinfo* mvs[],
-                    imgpel* imgDst, int padSize, int nRefs)
+SideInformation::MC(imgpel* imgDst, vector<mvinfo*> mvs,
+                    vector<imgpel*> refs, int padSize)
 {
   int cX, cY, mvX, mvY;
   double fWeightSum, fDist;
   double* fTmp = new double[_blockSize*_blockSize];
-  int paddedWidth = (2*padSize + _width);
   mvinfo* candidate;
+  int paddedWidth = (2*padSize + _width);
   imgpel* ref;
-
   for (int i = 0; i < _nmv; i++) {
     // init vals to zero
     fWeightSum = 0.0;
     for (int j = 0; j < _blockSize*_blockSize; j++)
         fTmp[j] = 0.0;
-
-    for (int fIdx = 0; fIdx < nRefs; fIdx++) {
-      fDist = mvs[fIdx][i].fDist;
+    
+    for (size_t fIdx = 0; fIdx < mvs.size(); fIdx++) {
+      fDist = mvs[fIdx]->fDist;
       fWeightSum += (1/(fDist+(float)0.001));
     }
 
-    for (int fIdx = 0; fIdx < nRefs; fIdx++) {
+    for (size_t fIdx = 0; fIdx < mvs.size(); fIdx++) {
       candidate = mvs[fIdx];
-      cX   = candidate[i].iCx;
-      cY   = candidate[i].iCy;
-      mvX  = cX + candidate[i].iMvx + padSize;
-      mvY  = cY + candidate[i].iMvy + padSize;
-      fDist = candidate[i].fDist;
+      cX   = candidate[i].iCx - padSize;
+      cY   = candidate[i].iCy - padSize;
+      mvX  = candidate[i].iCx + candidate[i].iMvx;
+      mvY  = candidate[i].iCy + candidate[i].iMvy;
+      fDist = mvs[fIdx]->fDist;
       ref = refs[fIdx];
       for (int j = 0; j < _blockSize; j++) {
         for (int k = 0; k < _blockSize; k++) {
@@ -549,11 +492,65 @@ SideInformation::MC(imgpel* refs[], mvinfo* mvs[],
     }
     for (int j = 0; j < _blockSize; j++) {
       for (int k = 0; k < _blockSize; k++) {
-      imgDst[cX+k+(cY+j)*_width] = (imgpel)((fTmp[k+j*_blockSize])/
+      imgDst[cX+k+(cY+j)*_width] = (imgpel)(fTmp[k+j*_blockSize] /
                                             fWeightSum);
       }
     }
   }
   delete [] fTmp;
 }
+#endif 
 
+void
+SideInformation::MC(imgpel* imgDst, mvinfo* candidate,
+                    imgpel* ref, int padSize)
+{
+  int cX, cY, mvX, mvY;
+  int paddedWidth = (2*padSize + _width);
+  for (int i = 0; i < _nmv; i++) {
+    cX   = candidate[i].iCx - padSize;
+    cY   = candidate[i].iCy - padSize;
+    mvX  = candidate[i].iCx + candidate[i].iMvx;
+    mvY  = candidate[i].iCy + candidate[i].iMvy;
+    for (int j = 0; j < _blockSize; j++) {
+      for (int k = 0; k < _blockSize; k++) {
+        imgDst[cX+k+(cY+j)*_width] = ref[k+mvX+(j+mvY)*paddedWidth];
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+void SideInformation::initPrevNextBuffers(RefBuffer* refFrames) {
+  int ww = _width>>1;
+  int hh = _height>>1;
+  int chsize = _frameSize>>2;
+  vector<imgpel*> prev = refFrames->_prevKeyFrame;
+  vector<imgpel*> next = refFrames->_nextKeyFrame;
+  imgpel* prevU = prev[0] + _frameSize;
+  imgpel* prevV = prevU + chsize;
+  imgpel* nextU = next[0] + _frameSize;
+  imgpel* nextV = nextU + chsize;
+  imgpel* prevUChroma = new imgpel[_frameSize];
+  imgpel* prevVChroma = new imgpel[_frameSize];
+  imgpel* nextUChroma = new imgpel[_frameSize];
+  imgpel* nextVChroma = new imgpel[_frameSize];
+
+  bilinear(prevU, prevUChroma, ww, hh, ww, hh, 0, 0);
+  bilinear(prevV, prevVChroma, ww, hh, ww, hh, 0, 0);
+  bilinear(nextU, nextUChroma, ww, hh, ww, hh, 0, 0);
+  bilinear(nextV, nextVChroma, ww, hh, ww, hh, 0, 0);
+
+  pad(prevUChroma, prev[1], 40);
+  pad(prevVChroma, prev[2], 40);
+  pad(prev[0], prev[3], 40);
+  pad(nextUChroma, next[1], 40);
+  pad(nextVChroma, next[2], 40);
+  pad(next[0], next[3], 40);
+
+  delete [] prevUChroma;
+  delete [] nextUChroma;
+  delete [] prevVChroma;
+  delete [] nextVChroma;
+}

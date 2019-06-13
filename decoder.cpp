@@ -115,7 +115,7 @@ void Decoder::initialize()
 
   _skipMask         = new int[_bitPlaneLength];
 
-  _fb = new FrameBuffer(_frameWidth, _frameHeight, _gop);
+  _fb = new FrameBuffer(_frameWidth, _frameHeight);
 
   _cavlc = new CavlcDec(this, 4);
   _cavlcU = new CavlcDec(this, 4);
@@ -169,14 +169,22 @@ void Decoder::decodeWzFrame()
 
   clock_t timeStart, timeEnd;
   double cpuTime;
+  int cw = _frameWidth >> 1;
+  int ch = _frameHeight >> 1;
+  int chsize = _frameSize >> 2;
+  int fullFrameSize = 3*(_frameSize>>1);
 
 // Luma Buffers
   imgpel* oriCurrFrame  = _fb->getorigFrame();
-  imgpel* currLuma      = _fb->getCurrFrame();
-  imgpel* prevKeyLuma   = _fb->getPrevFrame();
-  imgpel* nextKeyLuma   = _fb->getNextFrame();
-  imgpel* prevLuma;
-  imgpel* nextLuma;
+  imgpel* currFrame     = _fb->getCurrFrame();
+  imgpel* prevKey       = _fb->getPrevFrame();
+  imgpel* nextKey       = _fb->getNextFrame();
+  imgpel* oriCurrChroma = oriCurrFrame + _frameSize;
+  imgpel* currChroma    = currFrame + _frameSize;
+  imgpel* prevKeyChroma = prevKey + _frameSize;
+  imgpel* nextKeyChroma = nextKey + _frameSize;
+  imgpel* prevFrame;
+  imgpel* nextFrame;
   imgpel* imgSI         = _fb->getSideInfoFrame();
   imgpel* imgRefinedSI  = new imgpel[_frameSize];
   int* iDCT             = _fb->getDctFrame();
@@ -187,19 +195,13 @@ void Decoder::decodeWzFrame()
   int* iDCTResidual     = new int [_frameSize];
 
 // Chroma Buffers
-  imgpel* oriCurrChroma = _fb->getorigChroma();
-  imgpel* currChroma    = _fb->getCurrChroma();
-  imgpel* prevKeyChroma = _fb->getPrevChroma();
-  imgpel* nextKeyChroma = _fb->getNextChroma();
-  imgpel* prevChroma;
-  imgpel* nextChroma;
-  int* iDecodedU        = new int[_frameSize>>2];
-  int* iDecodedV        = new int[_frameSize>>2];
-  int* iDctU            = new int[_frameSize>>2];
-  int* iDctV            = new int[_frameSize>>2];
-  int* iQuantU          = new int[_frameSize>>2];
-  int* iQuantV          = new int[_frameSize>>2];
-  RecFrameBuffer* recFrames = _fb->getRecFrameBuffer();
+  int* iDecodedU        = new int[chsize];
+  int* iDecodedV        = new int[chsize];
+  int* iDctU            = new int[chsize];
+  int* iDctV            = new int[chsize];
+  int* iQuantU          = new int[chsize];
+  int* iQuantV          = new int[chsize];
+  RefBuffer* refFrames  = _fb->getRefBuffer();
 
   int x,y;
   double totalrate=0;
@@ -217,37 +219,27 @@ void Decoder::decodeWzFrame()
   parseKeyStat("stats.dat", dKeyCodingRate, dKeyPSNR);
 
   timeStart = clock();
-  int cw = _frameWidth >> 1;
-  int ch = _frameHeight >> 1;
-  int chsize = _frameSize >> 2;
 
   // Main loop
   // ---------------------------------------------------------------------------
   for (int keyFrameNo = 0; keyFrameNo < _numFrames/_gop; keyFrameNo++) {
-    // Read previous key frame
+    // Read previous and next key frame
     fseek(fKeyReadPtr, (3*(keyFrameNo)*_frameSize)>>1, SEEK_SET);
-    fread(prevKeyLuma, _frameSize, 1, fKeyReadPtr);
-    fread(prevKeyChroma, _frameSize>>1, 1, fKeyReadPtr);
-
-    // read next key frame
-    fread(nextKeyLuma, _frameSize, 1, fKeyReadPtr);
-    fread(nextKeyChroma, _frameSize>>1, 1, fKeyReadPtr);
+    fread(prevKey, fullFrameSize, 1, fKeyReadPtr);
+    fread(nextKey, fullFrameSize, 1, fKeyReadPtr);
 
     // write prevKey to output file
-    fwrite(prevKeyLuma, _frameSize, 1, fWritePtr);
-    fwrite(prevKeyChroma, _frameSize>>1, 1, fWritePtr);
+    fwrite(prevKey, fullFrameSize, 1, fWritePtr);
 
     // assign ref pointers
-    prevLuma = prevKeyLuma;
-    prevChroma = prevKeyChroma;
-    nextLuma = nextKeyLuma;
-    nextChroma = nextKeyChroma;
+    prevFrame = prevKey;
+    nextFrame = nextKey;
 
+    _si->initPrevNextBuffers(refFrames);
     int idx = 2;
     while (idx <= _gop) {
       if (idx == _gop) {
-        nextLuma = nextKeyLuma;
-        nextChroma = nextKeyChroma;
+        nextFrame = nextKey;
         idx--;
         continue;
       }
@@ -257,19 +249,18 @@ void Decoder::decodeWzFrame()
       cout << "Decoding frame " << wzFrameNo << " (Wyner-Ziv frame)" << endl;
       // Read current frame from the original file (for comparison)
       fseek(fReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
-      fread(oriCurrFrame, _frameSize, 1, fReadPtr);
-      fread(oriCurrChroma, _frameSize>>1, 1, fReadPtr);
+      fread(oriCurrFrame, fullFrameSize, 1, fReadPtr);
 
       // ---------------------------------------------------------------------
       // STAGE 1 - Decode Chroma Data
       // ---------------------------------------------------------------------
       // size of integer buffer in bytes is: (frameSize >> 2) * 4 == frameSize
-      memset(iDecodedU, 0, _frameSize);
-      memset(iDecodedV, 0, _frameSize);
-      memset(iQuantU, 0, _frameSize);
-      memset(iQuantV, 0, _frameSize);
-      memset(iDctU, 0, _frameSize);
-      memset(iDctV, 0, _frameSize);
+      memset(iDecodedU, 0, chsize*4);
+      memset(iDecodedV, 0, chsize*4);
+      memset(iQuantU, 0, chsize*4);
+      memset(iQuantV, 0, chsize*4);
+      memset(iDctU, 0, chsize*4);
+      memset(iDctV, 0, chsize*4);
       _numChnCodeBands = 0;
 
       int bitsU = 0;
@@ -320,25 +311,26 @@ void Decoder::decodeWzFrame()
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
       if (idx % 2 == 0) {
-        _si->chroma_MEMC(prevChroma, prevKeyLuma,
-                         nextKeyChroma, nextKeyLuma,
-                         recFrames, currChroma, imgSI);
+        _si->chroma_MEMC(refFrames, imgSI);
       } else {
-        _si->sideInfoMCI(prevLuma, nextLuma, imgSI);
+        _si->sideInfoMCI(prevFrame, nextFrame, imgSI);
       }
 
       float currPSNRSI = calcPSNR(oriCurrFrame, imgSI, _frameSize);
+      float currPSNRU = calcPSNR(oriCurrChroma, currChroma, chsize);
+      float currPSNRV = calcPSNR(oriCurrChroma+chsize, currChroma+chsize, chsize);
       cout << "PSNR SI: " << currPSNRSI << endl;
-      //float currPSNR = calcPSNR(oriCurrFrame, currLuma, _frameSize);
-      //dPSNRAvg += currPSNR;
+      cout << "PSNR U: " << currPSNRU << endl;
+      cout << "PSNR V: " << currPSNRV << endl;
+      float prevPSNR = calcPSNR(oriCurrFrame, prevKey, _frameSize);
+      cout << "PSNR PREV: " << prevPSNR << endl;
       dPSNRSIAvg += currPSNRSI;
-      dPSNRUAvg += calcPSNR(oriCurrChroma, currChroma, chsize);
-      dPSNRVAvg += calcPSNR(oriCurrChroma+chsize, currChroma+chsize, chsize);
-      dPSNRPrevSIAvg += calcPSNR(oriCurrFrame, prevKeyLuma, _frameSize);
+      dPSNRUAvg += currPSNRU;
+      dPSNRVAvg += currPSNRV;
+      dPSNRPrevSIAvg += prevPSNR;
       dPSNRPrevUAvg += calcPSNR(oriCurrChroma, prevKeyChroma, chsize);
       dPSNRPrevVAvg += calcPSNR(oriCurrChroma+chsize,
                                 prevKeyChroma+chsize, chsize);
-
       // ---------------------------------------------------------------------
       // STAGE 3 - WZ Decode
       // ---------------------------------------------------------------------
@@ -353,7 +345,7 @@ void Decoder::decodeWzFrame()
       memset(iDecoded, 0, _frameSize*4);
       memset(iDecodedInvQ, 0, _frameSize*4);
 
-      _si->getResidualFrame(prevKeyLuma, nextKeyLuma,
+      _si->getResidualFrame(prevKey, nextKey,
                             imgSI, iDCTBuffer, _rcList);
 
       _trans->dctTransform(iDCTBuffer, iDCTResidual, false);
@@ -379,17 +371,17 @@ void Decoder::decodeWzFrame()
         _trans->invQuantization(iDecoded, iDecodedInvQ, iDCTResidual, x, y);
         _trans->invDctTransform(iDecodedInvQ, iDCTBuffer, false);
 
-        _si->getRecFrame(prevKeyLuma, nextKeyLuma, iDCTBuffer, currLuma, _rcList);
+        _si->getRecFrame(prevKey, nextKey, iDCTBuffer, currFrame, _rcList);
 
         iDC = (x == 0 && y == 0) ? 0 : 1;
 
-        _si->getRefinedSideInfo(prevLuma, nextKeyLuma, imgSI, currLuma, imgRefinedSI, iDC);
+        _si->getRefinedSideInfo(prevFrame, nextKey, imgSI, currFrame, imgRefinedSI, iDC);
         currPSNRSI = calcPSNR(oriCurrFrame, imgRefinedSI, _frameSize);
         //cout << "PSNR Refined SI: " << currPSNRSI << endl;
 
         memcpy(imgSI, imgRefinedSI, _frameSize);
 
-        _si->getResidualFrame(prevKeyLuma, nextKeyLuma, imgSI, iDCTBuffer, _rcList);
+        _si->getResidualFrame(prevKey, nextKey, imgSI, iDCTBuffer, _rcList);
 
         _trans->dctTransform(iDCTBuffer, iDCTResidual, false);
         _trans->quantization(iDCTResidual, iDCTQ, false);
@@ -398,41 +390,36 @@ void Decoder::decodeWzFrame()
       }
 
       totalrate += dTotalRate;
-      cout << endl << "Curr Rate (Y frame): " << dTotalRate << " Kbytes" << endl;
+      dPSNRAvg += calcPSNR(oriCurrFrame, currFrame, _frameSize);
+      cout << "Curr bytes (Y frame): " << dTotalRate << " Kbytes" << endl;
+
       cout << "side information quality " << currPSNRSI << endl;
       cout << "PSNR WZ: ";
-      cout << calcPSNR(oriCurrFrame, currLuma, _frameSize) << endl << endl;
+      cout << calcPSNR(oriCurrFrame, currFrame, _frameSize) << endl << endl;
 
-      // add currFrame to frameBuffer
-      imgpel* tmp = recFrames->getNextRec();
-      memcpy(tmp, currLuma, _frameSize);
-      memcpy(tmp+_frameSize, currChroma, _frameSize>>1);
-
+      // update frameBuffer
+      refFrames->updateRecWindow();
+      
       // SI was generated using Chroma-ME, go back a frame
       if (idx % 2 == 0) {
         // update nextFrame ptr
-        nextLuma = tmp;
-        nextChroma = tmp + _frameSize;
+        nextFrame = refFrames->getCurrFrame()[0];
         idx--;
       }
       // SI was generated using MCI
       else if (idx < _gop-1) {
-	// update prevFrame ptr
-	prevLuma = nextLuma;
-	prevChroma = nextChroma;
+        // update prevFrame ptr
+        prevFrame = nextFrame;
 
         // write curr and next frames, then skip forward three frame
-        fwrite(currLuma, _frameSize, 1, fWritePtr);
-        fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
-        fwrite(nextLuma, _frameSize, 1, fWritePtr);
-        fwrite(nextChroma, _frameSize>>1, 1, fWritePtr);
+        fwrite(currFrame, fullFrameSize, 1, fWritePtr);
+        fwrite(nextFrame, fullFrameSize, 1, fWritePtr);
         idx += 3;
       }
       // SI was generated using MCI and curr frame is LAST in the GOP
       else {
         // write only the current frame to output
-        fwrite(currLuma, _frameSize, 1, fWritePtr);
-        fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
+        fwrite(currFrame, fullFrameSize, 1, fWritePtr);
         idx += 3;
       }
       iDecodeWZFrames++;

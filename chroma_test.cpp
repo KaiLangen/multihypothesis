@@ -59,13 +59,13 @@ private:
 // -----------------------------------------------------------------------------
 EncTest::EncTest(map<string, string> configMap): Encoder(configMap){
   fReadPtr = _files->getFile("src")->getFileHandle();
-  currChroma = _fb->getCurrChroma();
-  prevChroma = _fb->getPrevChroma();
-  nextChroma = _fb->getNextChroma();
-  dctUFrame = _fb->getDctChroma();
-  dctVFrame = _fb->getDctChroma() + chsize;
-  quantUFrame = _fb->getQuantDctFrame();
-  quantVFrame = _fb->getQuantDctFrame() + chsize;
+  currChroma = _fb->getCurrFrame() + _frameSize;
+  prevChroma = _fb->getPrevFrame() + _frameSize;
+  nextChroma = _fb->getNextFrame() + _frameSize;
+  dctUFrame = _fb->getDctFrame() + _frameSize;
+  dctVFrame = dctUFrame + chsize;
+  quantUFrame = _fb->getQuantDctFrame() + _frameSize;
+  quantVFrame = quantUFrame + chsize;
 
   // for testing file I/O
   _files = FileManager::getManager();
@@ -304,6 +304,7 @@ void EncTest::cavlcTest2() {
 
   assert(calcMSE(currChroma, recon, chsize) < 3);
   assert(calcMSE(currChroma+chsize, recon+chsize, chsize) < 3);
+  cout << "passed!" << endl;
 }
 
 
