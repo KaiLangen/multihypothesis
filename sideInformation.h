@@ -70,6 +70,9 @@ private:
 
   void MC(imgpel* imgPrev, imgpel* imgDst, mvinfo* candidate, int padSize);
 
+  void MC(imgpel* refs[2], mvinfo* mvs[2],
+          imgpel* imgDst, int padSize);
+
   void spatialSmooth(imgpel* rU, imgpel* rV,
                      imgpel* cU, imgpel* cV,
                      mvinfo* varCandidate,

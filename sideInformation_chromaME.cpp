@@ -238,25 +238,23 @@ void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
 
   ME(prevUChroma, currUChroma, prevVChroma, currVChroma, varCandidate0);
   ME(nextUChroma, currUChroma, nextVChroma, currVChroma, varCandidate1);
-  
-  for (int iter = 0; iter < _ss; iter++) { 
+
+  for (int iter = 0; iter < _ss; iter++) {
     spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
-                  varCandidate0, _blockSize, 40); 
+                  varCandidate0, _blockSize, 40);
     spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
-                  varCandidate1, _blockSize, 40); 
+                  varCandidate1, _blockSize, 40);
   }
 
   MC(prevPadded, mcF, varCandidate0, 40);
   MC(nextPadded, mcB, varCandidate1, 40);
 
-  for (int iy = 0; iy < _height; iy++)
-    for (int ix = 0; ix < _width; ix++) {
-      int i = ix+iy*(_width);
-      imgCurrFrame[i] = (mcF[i] + mcB[i] + 1)/2;
-    }
+  mvinfo* mvs[2] = {varCandidate0, varCandidate1};
+  imgpel* refs[2] = {prevPadded, nextPadded};
+  MC(refs, mvs, imgCurrFrame, 40);
 
   _model->correlationNoiseModeling(mcF, mcB);
-  
+
   // delete all buffers
   delete []  prevUChroma;
   delete []  prevVChroma;
@@ -444,7 +442,7 @@ const int SideInformation::_H[3][8][8] =
 void SideInformation::MC(imgpel* imgPrev, imgpel* imgDst,
                          mvinfo* candidate, int padSize)
 {
-  
+
   int cX, cY, mvX[3], mvY[3];
   int cand[3];
   for (int i = 0; i < _nmv; i++) {
@@ -484,8 +482,7 @@ void SideInformation::MC(imgpel* imgPrev, imgpel* imgDst,
       }
   }
 }
-#else 
-
+#else
 void
 SideInformation::MC(imgpel* imgPrev, imgpel* imgDst, int padSize)
 {
@@ -497,7 +494,7 @@ SideInformation::MC(imgpel* imgPrev, imgpel* imgDst, int padSize)
     cY   = candidate[i].iCy;
     mvX  = cX + candidate[i].iMvx + padSize;
     mvY  = cY + candidate[i].iMvy + padSize;
-    
+
     for (int j = 0; j < _blockSize; j++) {
       memcpy(imgDst + cX + (cY + j) * _width,
              imgPrev + mvX + (mvY + j) * (2*padSize+_width),
@@ -505,4 +502,52 @@ SideInformation::MC(imgpel* imgPrev, imgpel* imgDst, int padSize)
     }
   }
 }
-#endif 
+#endif
+
+void
+SideInformation::MC(imgpel* refs[2], mvinfo* mvs[2],
+                    imgpel* imgDst, int padSize)
+{
+  int cX, cY, mvX, mvY;
+  double fWeightSum, fDist;
+  double* fTmp = new double[_blockSize*_blockSize];
+  int paddedWidth = (2*padSize + _width);
+  mvinfo* candidate;
+  imgpel* ref;
+
+  for (int i = 0; i < _nmv; i++) {
+    // init vals to zero
+    fWeightSum = 0.0;
+    for (int j = 0; j < _blockSize*_blockSize; j++)
+        fTmp[j] = 0.0;
+
+    for (size_t fIdx = 0; fIdx < 2; fIdx++) {
+      fDist = mvs[fIdx][i].fDist;
+      fWeightSum += (1/(fDist+(float)0.001));
+    }
+
+    for (size_t fIdx = 0; fIdx < 2; fIdx++) {
+      candidate = mvs[fIdx];
+      cX   = candidate[i].iCx;
+      cY   = candidate[i].iCy;
+      mvX  = cX + candidate[i].iMvx + padSize;
+      mvY  = cY + candidate[i].iMvy + padSize;
+      fDist = candidate[i].fDist;
+      ref = refs[fIdx];
+      for (int j = 0; j < _blockSize; j++) {
+        for (int k = 0; k < _blockSize; k++) {
+          fTmp[k+j*_blockSize] += ref[k+mvX+(j+mvY)*paddedWidth] *
+                                  (1/(fDist+(float)0.001));
+        }
+      }
+    }
+    for (int j = 0; j < _blockSize; j++) {
+      for (int k = 0; k < _blockSize; k++) {
+      imgDst[cX+k+(cY+j)*_width] = (imgpel)((fTmp[k+j*_blockSize])/
+                                            fWeightSum);
+      }
+    }
+  }
+  delete [] fTmp;
+}
+

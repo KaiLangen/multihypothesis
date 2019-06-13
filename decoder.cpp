@@ -159,6 +159,7 @@ void Decoder::decodeWzFrame()
   double dPSNRPrevSIAvg=0;
   double dPSNRPrevUAvg=0;
   double dPSNRPrevVAvg=0;
+  int iDecodeWZFrames=0;
 
   clock_t timeStart, timeEnd;
   double cpuTime;
@@ -414,6 +415,7 @@ void Decoder::decodeWzFrame()
         fwrite(currChroma, _frameSize>>1, 1, fWritePtr);
         idx += 3;
       }
+      iDecodeWZFrames++;
     }
   }
 
@@ -421,7 +423,6 @@ void Decoder::decodeWzFrame()
   cpuTime = (timeEnd - timeStart) / CLOCKS_PER_SEC;
 
   int iNumGOP = _numFrames/_gop;
-  int iDecodeWZFrames = _numFrames - iNumGOP;
   int iTotalFrames = iDecodeWZFrames + iNumGOP;
 
   cout<<endl;
