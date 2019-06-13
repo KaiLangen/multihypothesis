@@ -13,7 +13,7 @@
 #define SKIP_MODE               1
 #define MODE_DECISION           1
 #define INTEGER_DCT             1
-#define HARDWARE_LDPC           0
+#define HARDWARE_LDPC           1
 #define HARDWARE_CMS            1
 #define HARDWARE_FLOW           1
 #define HARDWARE_OPT            1
@@ -28,7 +28,7 @@
 #ifdef DECODER
 # define INVERSE_MATRIX         1
 #endif
-#define OBMC                    1
+#define OBMC                    0
 
 #include "types.h"
 

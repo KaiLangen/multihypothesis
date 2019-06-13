@@ -5,6 +5,7 @@
 #include <map>
 
 #include "defs.h"
+#include "frameBuffer.h"
 
 class CorrModel;
 class Codec;
@@ -17,9 +18,13 @@ public:
 
   void sideInfoMCI(imgpel* prevFrame, imgpel* nextFrame, imgpel* currFrame);
 
-  void chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
-                   imgpel* nextChroma, imgpel* imgnextKey,
-                   imgpel* currChroma, imgpel* imgCurrFrame);
+  void chroma_MEMC(RefBuffer* refFrames, imgpel* sideInfo);
+
+  void MEProcess(imgpel* refUChroma, imgpel* refVChroma,
+                 imgpel* currUChroma, imgpel* currVChroma,
+                 mvinfo* mvs);
+
+  void initPrevNextBuffers(RefBuffer* refFrames);
 
   void getResidualFrame(imgpel* bRefFrame, imgpel* fRef,
                         imgpel* curr, int* residue, int* rcList);
@@ -58,17 +63,21 @@ private:
 
 
   // Chroma-ME functions
-  int TSS(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
-          mvinfo& mv, int step, int center);
+  void TSS(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
+           mvinfo& mv, int step, int center);
 
   void ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
-          mvinfo& mv, int p, int center);
+           mvinfo& mv, int p, int center, int pad);
 
   void ME(imgpel* refFrameU, imgpel* currFrameU,
           imgpel* refFrameV, imgpel* currFrameV,
           mvinfo* candidate);
 
-  void MC(imgpel* imgPrev, imgpel* imgDst, mvinfo* candidate, int padSize);
+  void MC(imgpel* sideInfo, vector<mvinfo*> mvs,
+          vector<imgpel*> refs, int padSize);
+
+  void MC(imgpel* sideInfo, mvinfo* candidate,
+          imgpel* ref, int padSize);
 
   void spatialSmooth(imgpel* rU, imgpel* rV,
                      imgpel* cU, imgpel* cV,

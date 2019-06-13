@@ -129,7 +129,7 @@ void Encoder::encodeKeyFrame()
   cmd << "./lencod.exe -d encoder_intra_main.cfg ";
   cmd << "-p InputFile=\"" << BIN_DIR << "/" << srcFileName << "\" ";
   cmd << "-p ReconFile=\"" << BIN_DIR << "/" << keyFileName << "\" ";
-  cmd << "-p FramesToBeEncoded=" << ((_numFrames + _gop/2)/_gop) << " ";
+  cmd << "-p FramesToBeEncoded=" << ((_numFrames/_gop)+1) << " ";
   cmd << "-p QPISlice=" << _keyQp << " ";
   cmd << "-p FrameSkip=" << _gop-1 << " ";
   cmd << "-p SourceWidth=" << _frameWidth << " ";
@@ -163,27 +163,23 @@ void Encoder::encodeWzFrame()
   clock_t timeStart, timeEnd;
   double cpuTime;
   int chsize = _frameSize>>2;
+  int fullFrameSize = 3*(_frameSize>>1);
 
   imgpel* currFrame     = _fb->getCurrFrame();
   imgpel* prevFrame     = _fb->getPrevFrame();
-  imgpel* nextFrame     = _fb->getNextChroma();
-  imgpel* currChroma    = _fb->getCurrChroma();
-  imgpel* prevChroma    = _fb->getPrevChroma();
-  imgpel* nextChroma    = _fb->getNextChroma();
+  imgpel* nextFrame     = _fb->getNextFrame();
   int*    dctFrame      = _fb->getDctFrame();
-  int*    quantDctFrame = _fb->getQuantDctFrame();
+  int*    quantFrame    = _fb->getQuantDctFrame();
+  int*    residue       = new int[fullFrameSize];
 
-  int*    residue       = new int[_frameSize];
-  int*    chromaResidue = new int[_frameSize>>1];
-  imgpel* recon         = new imgpel[_frameSize>>1];
-  int*    iDctU = new int[_frameSize>>2];
-  int*    iDctV = new int[_frameSize>>2];
-  int*    iQuantU = new int[_frameSize>>2];
-  int*    iQuantV = new int[_frameSize>>2];
-  int*    dctUFrame     = _fb->getDctChroma();
-  int*    dctVFrame     = _fb->getDctChroma() + chsize;
-  int*    quantUFrame   = _fb->getQuantDctFrame();
-  int*    quantVFrame   = _fb->getQuantDctFrame() + chsize;
+  imgpel* currChroma    = currFrame + _frameSize;
+  imgpel* prevChroma    = prevFrame + _frameSize;
+  imgpel* nextChroma    = nextFrame + _frameSize;
+  int*    chromaResidue = residue + _frameSize;
+  int*    quantUFrame   = quantFrame + _frameSize;
+  int*    quantVFrame   = quantUFrame + chsize;
+  int*    dctUFrame     = dctFrame + _frameSize;
+  int*    dctVFrame     = dctUFrame + chsize;
 
   timeStart = clock();
 
@@ -197,15 +193,11 @@ void Encoder::encodeWzFrame()
   // Main loop
   // ---------------------------------------------------------------------------
   for (int keyFrameNo = 0; keyFrameNo < _numFrames/_gop; keyFrameNo++) {
-    // Read previous key frame from the reconstructed key frame file
+    // Read prevand next  key frames from the reconstructed key frame file
     fseek(fKeyPtr, (3*keyFrameNo*_frameSize)>>1, SEEK_SET);
-    fread(prevFrame, _frameSize, 1, fKeyPtr);
-    fread(prevChroma, _frameSize>>1, 1, fKeyPtr);
+    fread(prevFrame, fullFrameSize, 1, fKeyPtr);
+    fread(nextFrame, fullFrameSize, 1, fKeyPtr);
 
-    // Read next key frame from the reconstructed key frame file
-    fseek(fKeyPtr, (3*_frameSize)>>1, SEEK_CUR);
-    fread(nextFrame, _frameSize, 1, fKeyPtr);
-    fread(nextChroma, _frameSize>>1, 1, fKeyPtr);
     int idx = 2;
     while (idx <= _gop) {
       // don't encode the final key-frame
@@ -221,8 +213,7 @@ void Encoder::encodeWzFrame()
 
       // Read current frame from the source file
       fseek(fReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
-      fread(currFrame, _frameSize, 1, fReadPtr);
-      fread(currChroma, _frameSize>>1, 1, fReadPtr);
+      fread(currFrame, fullFrameSize, 1, fReadPtr);
 
       // ---------------------------------------------------------------------
       // STAGE 1 - Residual coding & DCT
@@ -233,13 +224,13 @@ void Encoder::encodeWzFrame()
       // ---------------------------------------------------------------------
       // STAGE 2 - Quantization
       // ---------------------------------------------------------------------
-      _trans->quantization(dctFrame, quantDctFrame, false);
+      _trans->quantization(dctFrame, quantFrame, false);
 
       // ---------------------------------------------------------------------
       // STAGE 3 - Mode decision
       // ---------------------------------------------------------------------
 # if MODE_DECISION
-      selectCodingMode(quantDctFrame);
+      selectCodingMode(quantFrame);
 # endif // MODE_DECISION
 
       // ---------------------------------------------------------------------
@@ -274,7 +265,7 @@ void Encoder::encodeWzFrame()
 
       // Entropy encode
       if (numBands > _numChnCodeBands)
-        bits = _cavlc->encode(quantDctFrame, _skipMask);
+        bits = _cavlc->encode(quantFrame, _skipMask);
 
 # if HARDWARE_FLOW
       if (bits%32 != 0) {
@@ -284,7 +275,7 @@ void Encoder::encodeWzFrame()
 # endif // HARDWARE_FLOW
 
       // Channel encode
-      encodeFrameLdpca(quantDctFrame);
+      encodeFrameLdpca(quantFrame);
 
       // ---------------------------------------------------------------------
       // STAGE 6 - Write parity and CRC bits to the bitstream
@@ -312,10 +303,8 @@ void Encoder::encodeWzFrame()
       // ---------------------------------------------------------------------
       // STAGE 7 - Encode Chroma planes and Write to Bit-stream
       // ---------------------------------------------------------------------
-      memset(dctUFrame, 0, _frameSize>>2);
-      memset(dctVFrame, 0, _frameSize>>2);
-      memset(quantUFrame, 0, _frameSize>>2);
-      memset(quantVFrame, 0, _frameSize>>2);
+      memset(dctUFrame, 0, _frameSize>>1);
+      memset(quantUFrame, 0, _frameSize>>1);
       int* rcU = computeResidue(chromaResidue, prevChroma, nextChroma, currChroma, _bsU);
       int* rcV = computeResidue(chromaResidue+chsize, prevChroma+chsize,
                                 nextChroma+chsize, currChroma+chsize, _bsV);
