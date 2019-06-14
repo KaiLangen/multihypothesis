@@ -240,8 +240,8 @@ void SideInformation::createSideInfoProcess(imgpel* imgPrevKey,
 
   forwardME(imgPrevLowPass, imgNextLowPass, varCandidate , iRange);
 
-  pad(imgPrevKey, imgPrevKeyPadded, 40);
-  pad(imgNextKey, imgNextKeyPadded, 40);
+  pad(imgPrevKey, imgPrevKeyPadded, _width, _height, 40);
+  pad(imgNextKey, imgNextKeyPadded, _width, _height, 40);
 
   for (int iter = 0; iter < 2; iter++)
     spatialSmooth(imgPrevKeyPadded, imgNextKeyPadded,
@@ -564,92 +564,6 @@ void SideInformation::MC(imgpel* imgPrev, imgpel* imgNext, imgpel* imgDst,
   delete [] imgNextBuffer;
 }
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-void SideInformation::pad(imgpel* src, imgpel* dst, const int iPadSize)
-{
-  int padded_width  = _width  + 2*iPadSize;
-  int padded_height = _height + 2*iPadSize;
-
-  // Loops start from iPadSize; subtract it from src index
-
-  // Upper left
-  for (int y = 0; y < iPadSize; y++)
-    for (int x = 0; x < iPadSize; x++)
-      dst[x+y*padded_width] = src[0];
-
-  // Upper
-  for (int x = iPadSize; x < iPadSize+_width; x++)
-    for (int y = 0; y < iPadSize; y++)
-      dst[x+y*padded_width] = src[x-iPadSize];
-
-  // Upper right
-  for (int y = 0; y < iPadSize; y++)
-    for (int x = iPadSize+_width; x < padded_width; x++)
-      dst[x+y*padded_width] = src[_width-1];
-
-  // Left
-  for (int y = iPadSize; y < iPadSize+_height; y++)
-    for (int x = 0; x < iPadSize; x++)
-      dst[x+y*padded_width] = src[(y-iPadSize)*_width];
-
-  // Middle
-  for (int y = iPadSize; y < iPadSize+_height; y++)
-    for (int x = iPadSize; x < iPadSize+_width; x++)
-      dst[x+y*padded_width] = src[x-iPadSize+(y-iPadSize)*_width];
-
-  // Right
-  for (int y = iPadSize; y < iPadSize+_height; y++)
-    for (int x = iPadSize+_width; x < padded_width; x++)
-      dst[x+y*padded_width] = src[(y-iPadSize+1)*_width-1];
-
-  // Bottom left
-  for (int y = iPadSize+_height; y < padded_height; y++)
-    for (int x = 0; x < iPadSize; x++)
-      dst[x+y*padded_width] = src[(_height-1)*_width];
-
-  // Bottom
-  for (int y = iPadSize+_height; y < padded_height; y++)
-    for (int x = iPadSize; x < iPadSize+_width; x++)
-      dst[x+y*padded_width] = src[(x-iPadSize)+(_height-1)*_width];
-
-  // Bottom right
-  for (int y = iPadSize+_height; y < padded_height; y++)
-    for (int x = iPadSize+_width; x < padded_width; x++)
-      dst[x+y*padded_width] = src[_height*_width-1];
-}
-
-void bilinear(imgpel *source, imgpel *buffer, int buffer_w, int buffer_h,
-              int picwidth, int picheight, int px, int py){
-  for(int j=0;j<buffer_h;j++)
-    for(int i=0;i<buffer_w;i++)
-    {
-      int buffer_r=2*buffer_w;
-      int a,b,c,d;
-
-      int x=px+i;
-      int y=py+j;
-      if(x>picwidth-1)x=picwidth-1;
-      if(x<0)x=0;
-      if(y>picheight-1)y=picheight-1;
-      if(y<0)y=0;
-      a=source[(x)+(y)*picwidth];
-
-      if((x+1)<picwidth) b=source[(x+1)+(y)*picwidth];
-      else b=a;
-
-      if((y+1)<picheight) c=source[(x)+(y+1)*picwidth];
-      else c=a;
-
-      if((x+1)<picwidth && (y+1)<picheight) d=source[(x+1)+(y+1)*picwidth];
-      else d=a;
-
-      buffer[2*i+(2*j)*buffer_r]=a;
-      buffer[(2*i+1)+(2*j)*buffer_r]=(a+b)/2;
-      buffer[2*i+(2*j+1)*buffer_r]=(a+c)/2;
-      buffer[(2*i+1)+(2*j+1)*buffer_r]=(a+b+c+d)/4;
-    }
-}
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -741,8 +655,8 @@ void SideInformation::getRefinedSideInfo(imgpel *imgPrevKey,
   mvinfo * mvList0 = new mvinfo[_width*_height/16];
   mvinfo * mvList1 = new mvinfo[_width*_height/16];
 
-  pad(imgPrevKey,imgPrevPadded,iPadSize);
-  pad(imgNextKey,imgNextPadded,iPadSize);
+  pad(imgPrevKey, imgPrevPadded, _width, _height, iPadSize);
+  pad(imgNextKey, imgNextPadded, _width, _height, iPadSize);
 
   imgPrevBuffer = new imgpel[(_width+2*iPadSize)*(_height+2*iPadSize)*4];
   imgNextBuffer = new imgpel[(_width+2*iPadSize)*(_height+2*iPadSize)*4];

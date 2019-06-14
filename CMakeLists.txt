@@ -31,6 +31,7 @@ execute_process (
 add_library(utils bitstream.cpp
                   cavlc.cpp
                   codec.cpp
+                  frameBuffer.cpp
                   ldpca.cpp
                   transform.cpp
                   calculations.cpp
@@ -50,9 +51,9 @@ add_executable(decoder decoder.cpp
                        cavlcDec.cpp
                        corrModel.cpp
                        ldpcaDec.cpp
+                       dec_main.cpp
                        sideInformation_MCI.cpp
                        sideInformation_chromaME.cpp
-                       dec_main.cpp
 )
 target_link_libraries(decoder utils m)
 

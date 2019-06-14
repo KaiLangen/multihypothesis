@@ -50,10 +50,12 @@ Decoder::Decoder(map<string, string> configMap)
     _files->addFile("oracle", configMap["OracleFile"])->openFile("rb");
 
   // Parse other configuration parameters
-  _doubleMV = (bool)atoi(configMap["DoubleMV"].c_str());
+  int nRefFrames = atoi(configMap["NumRefFrames"].c_str());
   _trans = new Transform(this);
   _model = new CorrModel(this, _trans);
   _si    = new SideInformation(this, _model, configMap);
+  _fb = new FrameBuffer(_frameWidth, _frameHeight, nRefFrames);
+
 
   initialize();
 }
@@ -114,8 +116,6 @@ void Decoder::initialize()
   }
 
   _skipMask         = new int[_bitPlaneLength];
-
-  _fb = new FrameBuffer(_frameWidth, _frameHeight);
 
   _cavlc = new CavlcDec(this, 4);
   _cavlcU = new CavlcDec(this, 4);
@@ -235,7 +235,7 @@ void Decoder::decodeWzFrame()
     prevFrame = prevKey;
     nextFrame = nextKey;
 
-    _si->initPrevNextBuffers(refFrames);
+    refFrames->initPrevNextBuffers();
     int idx = 2;
     while (idx <= _gop) {
       if (idx == _gop) {
