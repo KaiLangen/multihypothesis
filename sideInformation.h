@@ -20,12 +20,6 @@ public:
 
   void chroma_MEMC(RefBuffer* refFrames, imgpel* sideInfo);
 
-  void MEProcess(imgpel* refUChroma, imgpel* refVChroma,
-                 imgpel* currUChroma, imgpel* currVChroma,
-                 mvinfo* mvs);
-
-  void initPrevNextBuffers(RefBuffer* refFrames);
-
   void getResidualFrame(imgpel* bRefFrame, imgpel* fRef,
                         imgpel* curr, int* residue, int* rcList);
 
@@ -67,7 +61,7 @@ private:
            mvinfo& mv, int step, int center);
 
   void ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
-           mvinfo& mv, int p, int center, int pad);
+           mvinfo& mv, int p, int center, int padSize);
 
   void ME(imgpel* refFrameU, imgpel* currFrameU,
           imgpel* refFrameV, imgpel* currFrameV,
@@ -85,10 +79,7 @@ private:
                      const int iBlockSize,
                      const int iPadSize);
 
-
-  // general (both methods)
-  void pad(imgpel* src, imgpel* dst, const int iPadSize);
-
+  // general
   void getSkippedRecFrame(imgpel* prevKey, imgpel* imgWZFrame, int* skipMask);
 
   Codec* _codec;
@@ -112,9 +103,6 @@ private:
   const static int _H[3][8][8];
 # endif
 };
-
-void bilinear(imgpel *source, imgpel *buffer, int buffer_w, int buffer_h,
-              int picwidth, int picheight, int px, int py);
 
 float getDCValue(imgpel* img,int iStep,int iStripe,int iBlock);
 

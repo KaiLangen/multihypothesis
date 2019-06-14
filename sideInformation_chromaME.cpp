@@ -116,13 +116,13 @@ void SideInformation::TSS(imgpel* trgU, imgpel* trgV,
 
 void
 SideInformation::ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
-                    mvinfo& mv, int p, int center, int pad)
+                    mvinfo& mv, int p, int center, int padSize)
 {
   // search start location
   int cx, cy, x, y, loc;
   unsigned int cost;
   unsigned int mincost = UINT_MAX;
-  int paddedWidth = (_width+2*pad);
+  int paddedWidth = (_width+2*padSize);
   cy = center / paddedWidth;
   cx = center % paddedWidth;
   for(int i = -p; i < p; ++i)
@@ -150,9 +150,10 @@ SideInformation::ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
   // set the center and location
   x = loc % paddedWidth;
   y = loc / paddedWidth;
-  mv.iCx = cx;
-  mv.iCy = cy;
-  // MV is new location - original location
+
+  // padSize must be subtracted from coordinates to work with spatial smoothing
+  mv.iCx = cx - padSize;
+  mv.iCy = cy - padSize;
   mv.iMvx = x - cx;
   mv.iMvy = y - cy;
 }
@@ -199,9 +200,8 @@ void SideInformation::chroma_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
 
   bilinear(currChroma, currUChroma, ww, hh, ww, hh, 0, 0);
   bilinear(currChroma+chsize, currVChroma, ww, hh, ww, hh, 0, 0);
-  pad(currUChroma, currFrame[1], padSize);
-  pad(currVChroma, currFrame[2], padSize);
-  pad(currFrame[0], currFrame[3], padSize);
+  pad(currUChroma, currFrame[1], _width, _height, padSize);
+  pad(currVChroma, currFrame[2], _width, _height, padSize);
 
   vector<mvinfo*> mvs;
   vector<imgpel*> refs;
@@ -241,6 +241,8 @@ void SideInformation::chroma_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
   _model->correlationNoiseModeling(mc1, mc2);
   delete [] currUChroma;
   delete [] currVChroma;
+  delete [] mc1;
+  delete [] mc2;
   for (auto m : mvs)
     delete [] m;
 }
@@ -472,17 +474,17 @@ SideInformation::MC(imgpel* imgDst, vector<mvinfo*> mvs,
         fTmp[j] = 0.0;
     
     for (size_t fIdx = 0; fIdx < mvs.size(); fIdx++) {
-      fDist = mvs[fIdx]->fDist;
+      fDist = mvs[fIdx][i].fDist;
       fWeightSum += (1/(fDist+(float)0.001));
     }
 
     for (size_t fIdx = 0; fIdx < mvs.size(); fIdx++) {
       candidate = mvs[fIdx];
-      cX   = candidate[i].iCx - padSize;
-      cY   = candidate[i].iCy - padSize;
-      mvX  = candidate[i].iCx + candidate[i].iMvx;
-      mvY  = candidate[i].iCy + candidate[i].iMvy;
-      fDist = mvs[fIdx]->fDist;
+      cX   = candidate[i].iCx;
+      cY   = candidate[i].iCy;
+      mvX  = cX + candidate[i].iMvx + padSize;
+      mvY  = cY + candidate[i].iMvy + padSize;
+      fDist = candidate[i].fDist;
       ref = refs[fIdx];
       for (int j = 0; j < _blockSize; j++) {
         for (int k = 0; k < _blockSize; k++) {
@@ -493,7 +495,7 @@ SideInformation::MC(imgpel* imgDst, vector<mvinfo*> mvs,
     }
     for (int j = 0; j < _blockSize; j++) {
       for (int k = 0; k < _blockSize; k++) {
-      imgDst[cX+k+(cY+j)*_width] = (imgpel)(fTmp[k+j*_blockSize] /
+      imgDst[cX+k+(cY+j)*_width] = (imgpel)((fTmp[k+j*_blockSize]) /
                                             fWeightSum);
       }
     }
@@ -509,49 +511,14 @@ SideInformation::MC(imgpel* imgDst, mvinfo* candidate,
   int cX, cY, mvX, mvY;
   int paddedWidth = (2*padSize + _width);
   for (int i = 0; i < _nmv; i++) {
-    cX   = candidate[i].iCx - padSize;
-    cY   = candidate[i].iCy - padSize;
-    mvX  = candidate[i].iCx + candidate[i].iMvx;
-    mvY  = candidate[i].iCy + candidate[i].iMvy;
+    cX   = candidate[i].iCx;
+    cY   = candidate[i].iCy;
+    mvX  = candidate[i].iCx + candidate[i].iMvx + padSize;
+    mvY  = candidate[i].iCy + candidate[i].iMvy + padSize;
     for (int j = 0; j < _blockSize; j++) {
       for (int k = 0; k < _blockSize; k++) {
         imgDst[cX+k+(cY+j)*_width] = ref[k+mvX+(j+mvY)*paddedWidth];
       }
     }
   }
-}
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-void SideInformation::initPrevNextBuffers(RefBuffer* refFrames) {
-  int ww = _width>>1;
-  int hh = _height>>1;
-  int chsize = _frameSize>>2;
-  vector<imgpel*> prev = refFrames->_prevKeyFrame;
-  vector<imgpel*> next = refFrames->_nextKeyFrame;
-  imgpel* prevU = prev[0] + _frameSize;
-  imgpel* prevV = prevU + chsize;
-  imgpel* nextU = next[0] + _frameSize;
-  imgpel* nextV = nextU + chsize;
-  imgpel* prevUChroma = new imgpel[_frameSize];
-  imgpel* prevVChroma = new imgpel[_frameSize];
-  imgpel* nextUChroma = new imgpel[_frameSize];
-  imgpel* nextVChroma = new imgpel[_frameSize];
-
-  bilinear(prevU, prevUChroma, ww, hh, ww, hh, 0, 0);
-  bilinear(prevV, prevVChroma, ww, hh, ww, hh, 0, 0);
-  bilinear(nextU, nextUChroma, ww, hh, ww, hh, 0, 0);
-  bilinear(nextV, nextVChroma, ww, hh, ww, hh, 0, 0);
-
-  pad(prevUChroma, prev[1], 40);
-  pad(prevVChroma, prev[2], 40);
-  pad(prev[0], prev[3], 40);
-  pad(nextUChroma, next[1], 40);
-  pad(nextVChroma, next[2], 40);
-  pad(next[0], next[3], 40);
-
-  delete [] prevUChroma;
-  delete [] nextUChroma;
-  delete [] prevVChroma;
-  delete [] nextVChroma;
 }
