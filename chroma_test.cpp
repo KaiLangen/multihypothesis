@@ -3,7 +3,6 @@
 #include <cassert>
 #include <iostream>
 #include <map>
-#include <opencv2/opencv.hpp>
 
 #include "calculations.h"
 #include "encoder.h"

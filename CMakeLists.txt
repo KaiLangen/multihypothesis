@@ -7,12 +7,6 @@ include_directories(${CMAKE_BINARY_DIR}/generated/)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -da")
-find_package(OpenCV REQUIRED)
-#find_package( OpenCV REQUIRED )
-
-#execute_process (
-#  COMMAND bash -c "cp ${CMAKE_CURRENT_SOURCE_DIR}/bowing.cfg ${CMAKE_BINARY_DIR}" 
-#)
 
 execute_process (
   COMMAND bash -c "tar -xzvf ${CMAKE_CURRENT_SOURCE_DIR}/ldpca.tar.gz \
@@ -70,4 +64,4 @@ add_executable(tester  encoder.cpp
                        chroma_test.cpp
 )
 
-target_link_libraries(tester utils m ${OpenCV_LIBS})
+target_link_libraries(tester utils m)

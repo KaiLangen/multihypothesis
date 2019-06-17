@@ -220,6 +220,10 @@ readConfig(string filename, bool isEnc)
       string seqType = configMap["SequenceType"];
       if ((seqType.compare("CIF") != 0) && (seqType.compare("QCIF") != 0))
         throw invalid_argument("Invalid GOP size");
+      if (FILE *file = fopen(configMap["KeyFile"].c_str(), "w"))
+        fclose(file);
+      else
+        throw invalid_argument("Unable to create key-frame file");
 
     } else { // decoder specific inputs
       int blockSize = atoi(configMap["BlockSize"].c_str());
@@ -237,13 +241,12 @@ readConfig(string filename, bool isEnc)
       if (FILE *file = fopen(configMap["WZFile"].c_str(), "r"))
         fclose(file);
       else
-        throw invalid_argument("Invalid WZ binary file");
+        throw invalid_argument("Unable to read WZ binary file");
+      if (FILE *file = fopen(configMap["KeyFile"].c_str(), "r"))
+        fclose(file);
+      else
+        throw invalid_argument("Unable to read key-frame binary file");
     }
-    // KeyFile is common to both
-    if (FILE *file = fopen(configMap["KeyFile"].c_str(), "r"))
-      fclose(file);
-    else
-      throw invalid_argument("Invalid key-frame file");
 
     cfile.close();
     return configMap;
