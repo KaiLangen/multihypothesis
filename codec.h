@@ -59,6 +59,7 @@ protected:
   int               _chrQp;
   int               _keyQp;
   int               _gop;
+  int               _MEMode;
   int               _numChnCodeBands;
 
   bool*             _parity;

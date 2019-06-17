@@ -42,11 +42,14 @@ Encoder::Encoder(map<string, string> configMap)
   }
   _numFrames     = atoi(configMap["NumFrames"].c_str());
   _gop           = atoi(configMap["Gop"].c_str());
+  _MEMode        = atoi(configMap["MEMode"].c_str());
 
   string wzFileName = configMap["WZFile"];
   _files->addFile("src", configMap["SrcFile"])->openFile("rb");
   _files->addFile("wz",  wzFileName)->openFile("wb");
   _files->addFile("key", configMap["KeyFile"]);
+  if (_MEMode == 1)
+    _files->addFile("oracle", configMap["OracleFile"]);
 
   string ubs = wzFileName.substr(0, wzFileName.find(".bin")) + ".u.bin";
   string vbs = wzFileName.substr(0, wzFileName.find(".bin")) + ".v.bin";
@@ -123,7 +126,6 @@ void Encoder::encodeKeyFrame()
   string keyFileName = _files->getFile("key")->getFileName();
 
   cout << "Running JM to encode key frames" << endl;
-
   stringstream cmd(stringstream::in | stringstream::out);
   cmd << "cd jm; ";
   cmd << "./lencod.exe -d encoder_intra_main.cfg ";
@@ -138,6 +140,24 @@ void Encoder::encodeKeyFrame()
   cmd << "cp stats.dat " << BIN_DIR;
   system(cmd.str().c_str());
   _files->getFile("key")->openFile("rb");
+
+  if (_MEMode == 1) {
+    cout << "Running JM to encode oracle frames" << endl;
+    string oracleFileName = _files->getFile("oracle")->getFileName();
+    stringstream cmd2(stringstream::in | stringstream::out);
+    cmd2 << "cd jm; ";
+    cmd2 << "./lencod.exe -d encoder_intra_main.cfg ";
+    cmd2 << "-p InputFile=\"" << BIN_DIR << "/" << srcFileName << "\" ";
+    cmd2 << "-p ReconFile=\"" << BIN_DIR << "/" << oracleFileName << "\" ";
+    cmd2 << "-p FramesToBeEncoded=" << _numFrames << " ";
+    cmd2 << "-p QPISlice=" << _keyQp << " ";
+    cmd2 << "-p SourceWidth=" << _frameWidth << " ";
+    cmd2 << "-p SourceHeight=" << _frameHeight << " ";
+    cmd2 << " > jm.log;";
+    cmd2 << "cp stats.dat " << BIN_DIR;
+    system(cmd2.str().c_str());
+    _files->getFile("oracle")->openFile("rb");
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -151,6 +171,7 @@ void Encoder::encodeWzHeader()
   _bs->write(_chrQp, 8);
   _bs->write(_numFrames, 16);
   _bs->write(_gop, 8);
+  _bs->write(_MEMode, 1);
 }
 
 // -----------------------------------------------------------------------------

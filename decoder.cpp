@@ -45,6 +45,9 @@ Decoder::Decoder(map<string, string> configMap)
   // read height, width, gop, and qp's from header
   decodeWzHeader();
 
+  if (_MEMode == 1)
+    _files->addFile("oracle", configMap["OracleFile"])->openFile("rb");
+
   // Parse other configuration parameters
   _trans = new Transform(this);
   _model = new CorrModel(this, _trans);
@@ -63,6 +66,7 @@ void Decoder::decodeWzHeader()
   _chrQp        = _bs->read(8);
   _numFrames    = _bs->read(16);
   _gop          = _bs->read(8);
+  _MEMode       = _bs->read(1);
 
   cout << "--------------------------------------------------" << endl;
   cout << "WZ frame parameters" << endl;
@@ -203,6 +207,9 @@ void Decoder::decodeWzFrame()
   FILE* fReadPtr        = _files->getFile("origin")->getFileHandle();
   FILE* fWritePtr       = _files->getFile("rec")->getFileHandle();
   FILE* fKeyReadPtr     = _files->getFile("key")->getFileHandle();
+  FILE* oracleReadPtr = NULL;
+  if (_MEMode == 1)
+       oracleReadPtr = _files->getFile("oracle")->getFileHandle();
 
   parseKeyStat("stats.dat", dKeyCodingRate, dKeyPSNR);
 
@@ -305,10 +312,14 @@ void Decoder::decodeWzFrame()
       // STAGE 2 - Create side information
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
-      if (idx % 2 == 0) {
+      if (idx % 2 == 0 && _MEMode == 0) {
         _si->chroma_MEMC(prevChroma, prevLuma,
                          nextKeyChroma, nextKeyLuma,
                          currChroma, imgSI);
+      } else if (idx % 2 == 0 && _MEMode == 1) {
+        fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
+        fread(currLuma, _frameSize, 1, oracleReadPtr);
+        _si->oracle_MEMC(prevLuma, nextKeyLuma, currLuma, imgSI);
       } else {
         _si->sideInfoMCI(prevLuma, nextLuma, imgSI);
       }

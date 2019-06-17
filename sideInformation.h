@@ -21,6 +21,9 @@ public:
                    imgpel* nextChroma, imgpel* imgnextKey,
                    imgpel* currChroma, imgpel* imgCurrFrame);
 
+  void oracle_MEMC(imgpel* imgPrevKey, imgpel* imgNextKey,
+                   imgpel* currLuma, imgpel* imgResult);
+
   void getResidualFrame(imgpel* bRefFrame, imgpel* fRef,
                         imgpel* curr, int* residue, int* rcList);
 

@@ -276,6 +276,53 @@ void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+void SideInformation::oracle_MEMC(imgpel* imgPrevKey, imgpel* imgNextKey,
+                                  imgpel* currLuma, imgpel* imgResult)
+{
+  if (_p == 0) {
+    memcpy(imgResult, imgPrevKey, _frameSize);
+    return;
+  }
+  mvinfo *varCandidate0 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
+  mvinfo *varCandidate1 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
+  imgpel* nextPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* prevPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* currPadded = new imgpel[(_width+80)*(_height+80)];
+  imgpel* mcF = new imgpel[_frameSize];
+  imgpel* mcB = new imgpel[_frameSize];
+
+  pad(imgPrevKey, prevPadded, 40);
+  pad(imgNextKey, nextPadded, 40);
+  pad(currLuma, currPadded, 40);
+
+  ME(imgPrevKey, currLuma, imgPrevKey, currLuma, varCandidate0);
+  ME(imgNextKey, currLuma, imgNextKey, currLuma, varCandidate1);
+
+  for (int iter = 0; iter < _ss; iter++) {
+    spatialSmooth(prevPadded, currPadded,
+                  varCandidate0, _blockSize, 40);
+    spatialSmooth(nextPadded, currPadded,
+                  varCandidate1, _blockSize, 40);
+  }
+
+  MC(prevPadded, mcF, varCandidate0, 40);
+  MC(nextPadded, mcB, varCandidate1, 40);
+
+  mvinfo* mvs[2] = {varCandidate0, varCandidate1};
+  imgpel* refs[2] = {prevPadded, nextPadded};
+  MC(refs, mvs, imgResult, 40);
+
+  _model->correlationNoiseModeling(mcF, mcB);
+
+  // delete all buffers
+  delete []  nextPadded;
+  delete []  prevPadded;
+  delete []  currPadded;
+  delete []  mcF;
+  delete []  mcB;
+}
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 /*
 * Spatial Smoothing
 */

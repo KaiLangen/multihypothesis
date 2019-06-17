@@ -220,6 +220,7 @@ readConfig(string filename, bool isEnc)
       string seqType = configMap["SequenceType"];
       if ((seqType.compare("CIF") != 0) && (seqType.compare("QCIF") != 0))
         throw invalid_argument("Invalid GOP size");
+
     } else { // decoder specific inputs
       int blockSize = atoi(configMap["BlockSize"].c_str());
       if (blockSize < 8 || blockSize > 32)
@@ -230,6 +231,9 @@ readConfig(string filename, bool isEnc)
       int spatialSmoothing = atoi(configMap["SearchWindowSize"].c_str());
       if (spatialSmoothing < 0)
         throw invalid_argument("Invalid spatial smoothing parameter");
+      int meMode = atoi(configMap["MEMode"].c_str());
+      if (meMode < 0 || meMode > 1)
+        throw invalid_argument("Invalid Motion Estimation Mode: must use 0 for Chroma-ME or 1 for oracle");
       if (FILE *file = fopen(configMap["WZFile"].c_str(), "r"))
         fclose(file);
       else
