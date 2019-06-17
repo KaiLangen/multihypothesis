@@ -24,6 +24,16 @@ execute_process (
                    --directory ${CMAKE_BINARY_DIR}"
 )
 
+execute_process (
+  COMMAND bash -c "if [ `uname -m` == x86_64 ]
+  then
+    mv ${CMAKE_BINARY_DIR}/jm/lencod_64.exe ${CMAKE_BINARY_DIR}/jm/lencod.exe
+  elif [ `uname -m` == x86_64 ]
+  then
+    mv ${CMAKE_BINARY_DIR}/jm/lencod_32.exe ${CMAKE_BINARY_DIR}/jm/lencod.exe
+  fi"
+)
+
 add_library(utils bitstream.cpp
                   cavlc.cpp
                   codec.cpp
