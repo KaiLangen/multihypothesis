@@ -45,7 +45,7 @@ Decoder::Decoder(map<string, string> configMap)
   // read height, width, gop, and qp's from header
   decodeWzHeader();
 
-  if (_MEMode == 1)
+  if (_MEMode)
     _files->addFile("oracle", configMap["OracleFile"])->openFile("rb");
 
   // Parse other configuration parameters
@@ -67,7 +67,7 @@ void Decoder::decodeWzHeader()
   _chrQp        = _bs->read(8);
   _numFrames    = _bs->read(16);
   _gop          = _bs->read(8);
-  _MEMode       = _bs->read(1);
+  _MEMode       = _bs->read(2);
 
   cout << "--------------------------------------------------" << endl;
   cout << "WZ frame parameters" << endl;
@@ -209,7 +209,7 @@ void Decoder::decodeWzFrame()
   FILE* fWritePtr       = _files->getFile("rec")->getFileHandle();
   FILE* fKeyReadPtr     = _files->getFile("key")->getFileHandle();
   FILE* oracleReadPtr = NULL;
-  if (_MEMode == 1)
+  if (_MEMode)
        oracleReadPtr = _files->getFile("oracle")->getFileHandle();
 
   parseKeyStat("stats.dat", dKeyCodingRate, dKeyPSNR);
@@ -313,14 +313,23 @@ void Decoder::decodeWzFrame()
       // STAGE 2 - Create side information
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
-      if (idx % 2 == 0 && _MEMode == 0) {
-        _si->chroma_MEMC(prevChroma, prevLuma,
-                         nextKeyChroma, nextKeyLuma,
-                         currChroma, imgSI, _doubleMV);
-      } else if (idx % 2 == 0 && _MEMode == 1) {
-        fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
-        fread(currLuma, _frameSize, 1, oracleReadPtr);
-        _si->oracle_MEMC(prevLuma, nextKeyLuma, currLuma, imgSI);
+      if (idx % 2 == 0) {
+        if (_MEMode == 0) {
+          _si->chroma_MEMC(prevChroma, prevLuma,
+                           nextKeyChroma, nextKeyLuma,
+                           currChroma, imgSI, _doubleMV);
+        } else if (_MEMode == 1) {
+          fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
+          fread(currLuma, _frameSize, 1, oracleReadPtr);
+          _si->oracle_MEMC(prevLuma, nextKeyLuma, currLuma, imgSI);
+        } else if (_MEMode == 2) {
+          fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
+          fseek(oracleReadPtr, _frameSize, SEEK_CUR);
+          fread(currChroma, _frameSize>>1, 1, oracleReadPtr);
+          _si->chroma_MEMC(prevChroma, prevLuma,
+                           nextKeyChroma, nextKeyLuma,
+                           currChroma, imgSI, _doubleMV);
+        }
       } else {
         _si->sideInfoMCI(prevLuma, nextLuma, imgSI);
       }

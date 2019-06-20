@@ -48,7 +48,7 @@ Encoder::Encoder(map<string, string> configMap)
   _files->addFile("src", configMap["SrcFile"])->openFile("rb");
   _files->addFile("wz",  wzFileName)->openFile("wb");
   _files->addFile("key", configMap["KeyFile"]);
-  if (_MEMode == 1)
+  if (_MEMode)
     _files->addFile("oracle", configMap["OracleFile"]);
 
   string ubs = wzFileName.substr(0, wzFileName.find(".bin")) + ".u.bin";
@@ -141,7 +141,7 @@ void Encoder::encodeKeyFrame()
   system(cmd.str().c_str());
   _files->getFile("key")->openFile("rb");
 
-  if (_MEMode == 1) {
+  if (_MEMode) {
     cout << "Running JM to encode oracle frames" << endl;
     string oracleFileName = _files->getFile("oracle")->getFileName();
     stringstream cmd2(stringstream::in | stringstream::out);
@@ -171,7 +171,7 @@ void Encoder::encodeWzHeader()
   _bs->write(_chrQp, 8);
   _bs->write(_numFrames, 16);
   _bs->write(_gop, 8);
-  _bs->write(_MEMode, 1);
+  _bs->write(_MEMode, 2);
 }
 
 // -----------------------------------------------------------------------------
