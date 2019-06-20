@@ -74,7 +74,7 @@ SideInformation::ES(mvinfo& mv, int p, int center,
     // MV is new location - original location
     mv.iMvx = x - cx;
     mv.iMvy = y - cy;
-    mv.fDist = (float)cost;
+    mv.fDist = (float)mincost;
 }
 
 void
