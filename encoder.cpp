@@ -131,7 +131,7 @@ void Encoder::encodeKeyFrame()
   cmd << "./lencod.exe -d encoder_intra_main.cfg ";
   cmd << "-p InputFile=\"" << BIN_DIR << "/" << srcFileName << "\" ";
   cmd << "-p ReconFile=\"" << BIN_DIR << "/" << keyFileName << "\" ";
-  cmd << "-p FramesToBeEncoded=" << ((_numFrames + _gop/2)/_gop) << " ";
+  cmd << "-p FramesToBeEncoded=" << (_numFrames/_gop + 1) << " ";
   cmd << "-p QPISlice=" << _keyQp << " ";
   cmd << "-p FrameSkip=" << _gop-1 << " ";
   cmd << "-p SourceWidth=" << _frameWidth << " ";

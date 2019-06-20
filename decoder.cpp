@@ -295,7 +295,7 @@ void Decoder::decodeWzFrame()
       }
 # endif // HARDWARE_FLOW
 
-      chromarate += (bitsU + bitsV) / (1024);
+      chromarate += (bitsU + bitsV) / (1000);
 
       _trans->invQuantization(iDecodedU, iQuantU);
       _trans->invQuantization(iDecodedV, iQuantV);
@@ -340,11 +340,10 @@ void Decoder::decodeWzFrame()
       // STAGE 3 - WZ Decode
       // ---------------------------------------------------------------------
       int tmp = getSyndromeData();
-      cout << tmp << "Bits from 'getSyndromeData()'" << endl;
 
       //cout << _numChnCodeBands << endl;
 
-      double dTotalRate = (double)tmp/1024/8;
+      double dTotalRate = (double)tmp/1000/8;
 
       _trans->dctTransform(imgSI, iDCT, false);
 
@@ -373,7 +372,6 @@ void Decoder::decodeWzFrame()
         dTotalRate += decodeLDPC(iDCTQ, iDCTResidual, iDecoded, x, y, iOffset);
 #   endif
 
-        cout << "Curr Frame Rate =" << dTotalRate << endl;
         //temporal reconstruction
         _trans->invQuantization(iDecoded, iDecodedInvQ, iDCTResidual, x, y);
         _trans->invDctTransform(iDecodedInvQ, iDCTBuffer, false);
@@ -384,7 +382,7 @@ void Decoder::decodeWzFrame()
 
         _si->getRefinedSideInfo(prevLuma, nextKeyLuma, imgSI, currLuma, imgRefinedSI, iDC);
         currPSNRSI = calcPSNR(oriCurrFrame, imgRefinedSI, _frameSize);
-        cout << "PSNR Refined SI: " << currPSNRSI << endl;
+        //cout << "PSNR Refined SI: " << currPSNRSI << endl;
 
         memcpy(imgSI, imgRefinedSI, _frameSize);
 
@@ -397,10 +395,8 @@ void Decoder::decodeWzFrame()
       }
 
       totalrate += dTotalRate;
-      cout << "Curr bytes (Y frame): " << dTotalRate << " Kbytes" << endl;
-
+      cout << endl << "Curr Rate (Y frame): " << dTotalRate << " Kbytes" << endl;
       cout << "side information quality " << currPSNRSI << endl;
-
       cout << "PSNR WZ: ";
       cout << calcPSNR(oriCurrFrame, currLuma, _frameSize) << endl << endl;
 
@@ -442,7 +438,7 @@ void Decoder::decodeWzFrame()
   cout<<"--------------------------------------------------"<<endl;
   cout<<"Total Frames        :   "<<iTotalFrames<<endl;
   float framerate = 30.0;
-  cout<<"Total Bytes         :   "<<totalrate<<endl;
+  cout<<"Total KBytes        :   "<<totalrate<<endl;
   cout<<"Total Decoding Time :   "<<cpuTime<<"(s)"<<endl;
   cout<<"Avg Decoding Time   :   "<<cpuTime/(iDecodeWZFrames)<<endl;
   cout<<"Y Key Rate (kbps)   :   ";
@@ -455,10 +451,9 @@ void Decoder::decodeWzFrame()
   cout<<"Key Frame PSNRU     :   "<<dKeyPSNR[1]<<endl;
   cout<<"Key Frame PSNRV     :   "<<dKeyPSNR[2]<<endl;
   dPSNRAvg   /= iDecodeWZFrames;
-  cout<<"WZ Avg Rate  (kbps) :   "<<totalrate/double(iDecodeWZFrames)*framerate*(iDecodeWZFrames)/(double)iTotalFrames*8.0<<endl;
+  cout<<"WZ Avg Rate  (kbps) :   "<<totalrate/double(iTotalFrames)*framerate*8.0<<endl;
   cout<<"WZ Avg PSNR         :   "<<dPSNRAvg<<endl;
-  cout<<"Avg Rate (Key+WZ)   :   "<<totalrate/double(iDecodeWZFrames)*
-                                   framerate*(iDecodeWZFrames)/
+  cout<<"Avg Rate (Key+WZ)   :   "<<totalrate*framerate/
                                    (double)iTotalFrames*8.0+
                                    dKeyCodingRate[0]*framerate*
                                    (iNumGOP)/(double)iTotalFrames<<endl;
@@ -530,9 +525,9 @@ void Decoder::parseKeyStat(const char* filename, double* rate, double* psnr)
 
   if (iSliceRate != 0) {
     totalRate += iSliceRate - iSlice_chroma;
-    rate[0] = totalRate/(1024);
-    rate[1] = iSlice_chroma/(2*1024);
-    rate[2] = iSlice_chroma/(2*1024);
+    rate[0] = totalRate/(1000);
+    rate[1] = iSlice_chroma/(2*1000);
+    rate[2] = iSlice_chroma/(2*1000);
   } else {
     rate[0] = 0;
     rate[1] = 0;
@@ -840,7 +835,7 @@ double Decoder::decodeLDPC(int* iQuantDCT, int* iDCT, int* iDecoded, int x, int 
   delete [] dLDPCDecoded;
   delete [] dSource;
 
-  return (dTotalRate*_bitPlaneLength/8/1024);
+  return (dTotalRate*_bitPlaneLength/8/1000);
 }
 
 // -----------------------------------------------------------------------------
