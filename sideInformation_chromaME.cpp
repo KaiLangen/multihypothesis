@@ -24,102 +24,10 @@ static int find_min(unsigned int costs[9])
     return location;
 }
 
-/**
- * Three Step Search Algorithm
- * description: full-pixel motion search. Looks for the block in ref
- *     that is closest to the block in trg at the center coordinates.
- * param:
- *     trg       - target frame
- *     ref       - reference frame
- *     mv        - motion vector reference object
- *     step      - starting step size for TSS
- *     center    - coordinates of the upper-left pixel in the target block
- *     width     - width of the frame(s)
- *     height    - height of the frame(s)
- *     blockSize - size of the block (height and width).
- *
- * return: the final SAD of the matching block.
- *
- */
-int SideInformation::TSS(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
-                        mvinfo& mv, int step, int center)
-{
-    // search start location
-    unsigned int costs[9] = {UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX,
-                   UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX};
-    int locations[9] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};
-    int loc, og, cx, cy, x, y;
-    og = center;
-    // calculate the first center
-    // avoid recalculating the center within the loop
-    costs[4] = calcSAD(&trgU[og], &refU[center], _width, _blockSize);
-    costs[4] += calcSAD(&trgV[og], &refV[center], _width, _blockSize);
-    locations[4] = center;
-
-    while(step >= 1)
-    {
-        // center coordinates in the image = (cy, cx)
-        cy = center / _width;
-        cx = center % _width;
-        // coordinates in the cost matrix = (i,j)
-        for(int i = 0; i < 3; ++i)
-        {
-            for(int j = 0; j < 3; ++j)
-            {
-                // the 9 pts formed by stepping away from the center = (y, x)
-                //
-                // (cy-step, cx-step), (cy-step,      cx), (cy-step, cx+step)
-                // (cy     , cx-step), (cy     ,      cx), (cy     , cx+step)
-                // (cy+step, cx-step), (cy+step,      cx), (cy+step, cx+step)
-                y = cy + (i-1) * step;
-                x = cx + (j-1) * step;
-
-                // check if the pt coordinates fall outside of the image
-                if(x < 0 || x >= _width - _blockSize ||
-                   y < 0 || y >= _height - _blockSize ||
-                   (i == 1 && j == 1))
-                {
-//                    costs[i*3 + j] = USHRT_MAX;
-                    continue;
-                }
-                costs[i*3 + j] = calcSAD(&trgU[og],
-                                         &refU[y*_width + x],
-                                         _width,
-                                         _blockSize);
-                costs[i*3 + j] += calcSAD(&trgV[og],
-                                         &refV[y*_width + x],
-                                         _width,
-                                         _blockSize);
-                locations[i*3 + j] = y*_width + x;
-            }
-        }
-        // re-center the search window on the local minimum
-        loc = find_min(costs);
-        center = locations[loc];
-        step /= 2;
-
-        // set the center and location
-        costs[4] = costs[loc];
-        locations[4] = center;
-    }
-
-    x = og % _width;
-    y = og / _width;
-    cx = center % _width;
-    cy = center / _width;
-    // set old coordinates in MV
-    mv.iCx = x;
-    mv.iCy = y;
-    // MV is new location - original location
-    mv.iMvx = cx - x;
-    mv.iMvy = cy - y;
-
-    return costs[4];
-}
-
 void
-SideInformation::ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
-                    mvinfo& mv, int p, int center)
+SideInformation::ES(mvinfo& mv, int p, int center,
+                    imgpel* ref1, imgpel* trg1,
+                    imgpel* ref2=0, imgpel* trg2=0)
 {
     // search start location
     int cx, cy, x, y, loc;
@@ -141,14 +49,16 @@ SideInformation::ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
             {
                 continue;
             }
-            cost = calcSAD(&trgU[center],
-                           &refU[y*_width + x],
+            cost = calcSAD(&trg1[center],
+                           &ref1[y*_width + x],
                            _width,
                            _blockSize);
-            cost += calcSAD(&trgV[center],
-                            &refV[y*_width + x],
-                            _width,
-                            _blockSize);
+            if (trg2) {
+              cost += calcSAD(&trg2[center],
+                              &ref2[y*_width + x],
+                              _width,
+                              _blockSize);
+            }
             if (cost < mincost) {
               loc = y * _width + x;
               mincost = cost;
@@ -164,7 +74,7 @@ SideInformation::ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
     // MV is new location - original location
     mv.iMvx = x - cx;
     mv.iMvy = y - cy;
-    mv.SAD = mincost;
+    mv.fDist = (float)cost;
 }
 
 void
@@ -173,14 +83,31 @@ SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
                     mvinfo* candidate)
 {
   int idx;
-  int cnt = 0;
-  /* for every block, search each reference frame and find the best matching block. */
-  /* TODO: Would be more computationally efficient to have refs be the outter loop */
+  int c = 0;
+  /* for every block, search each reference
+   * frame and find the best matching block. */
   for (int y = 0; y <= _height - _blockSize; y += _blockSize) {
     for (int x = 0; x <= _width - _blockSize; x += _blockSize) {
       idx = y * _width + x;
-      ES(currFrameU, currFrameV, refFrameU, refFrameV, candidate[cnt], _p, idx);
-      cnt++;
+      ES(candidate[c], _p, idx, refFrameU, currFrameU, refFrameV, currFrameV);
+      c++;
+    }
+  }
+}
+
+void
+SideInformation::ME(imgpel* refFrame, imgpel* currFrame,
+                    mvinfo* candidate)
+{
+  int idx;
+  int c = 0;
+  /* for every block, search each reference
+   * frame and find the best matching block. */
+  for (int y = 0; y <= _height - _blockSize; y += _blockSize) {
+    for (int x = 0; x <= _width - _blockSize; x += _blockSize) {
+      idx = y * _width + x;
+      ES(candidate[c], _p, idx, refFrame, currFrame);
+      c++;
     }
   }
 }
@@ -189,7 +116,8 @@ SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
 // -----------------------------------------------------------------------------
 void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
                                   imgpel* nextChroma, imgpel* imgNextKey,
-                                  imgpel* currChroma, imgpel* imgCurrFrame)
+                                  imgpel* currChroma, imgpel* imgCurrFrame,
+                                  bool isDoubleMV)
 {
   if (_p == 0) {
     memcpy(imgCurrFrame, imgPrevKey, _frameSize);
@@ -197,6 +125,8 @@ void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
   }
   mvinfo *varCandidate0 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
   mvinfo *varCandidate1 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
+  mvinfo *varCandidate2 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
+  mvinfo *varCandidate3 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
   imgpel* prevUChroma = new imgpel[_frameSize];
   imgpel* prevVChroma = new imgpel[_frameSize];
   imgpel* nextUChroma = new imgpel[_frameSize];
@@ -236,42 +166,67 @@ void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
   pad(imgPrevKey, prevPadded, 40);
   pad(imgNextKey, nextPadded, 40);
 
-  ME(prevUChroma, currUChroma, prevVChroma, currVChroma, varCandidate0);
-  ME(nextUChroma, currUChroma, nextVChroma, currVChroma, varCandidate1);
+  if (isDoubleMV) {
+    ME(prevUChroma, currUChroma, varCandidate0);
+    ME(prevVChroma, currVChroma, varCandidate1);
+    ME(nextUChroma, currUChroma, varCandidate2);
+    ME(nextVChroma, currVChroma, varCandidate3);
 
-  for (int iter = 0; iter < _ss; iter++) {
-    spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
-                  varCandidate0, _blockSize, 40);
-    spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
-                  varCandidate1, _blockSize, 40);
+    for (int iter = 0; iter < _ss; iter++) {
+      spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
+                    varCandidate0, _blockSize, 40);
+      spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
+                    varCandidate1, _blockSize, 40);
+      spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
+                    varCandidate2, _blockSize, 40);
+      spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
+                    varCandidate3, _blockSize, 40);
+    }
+    mvinfo* mvs[4] = {varCandidate0, varCandidate1, varCandidate2, varCandidate3};
+    imgpel* refs[4] = {prevPadded, prevPadded, nextPadded, nextPadded};
+    MC(refs, mvs, imgCurrFrame, 40, 4);
+    MC(prevPadded, mcF, varCandidate0, 40);
+    MC(nextPadded, mcB, varCandidate2, 40);
+  } else {
+    ME(prevUChroma, currUChroma, prevVChroma, currVChroma, varCandidate0);
+    ME(nextUChroma, currUChroma, nextVChroma, currVChroma, varCandidate1);
+
+    for (int iter = 0; iter < _ss; iter++) {
+      spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
+                    varCandidate0, _blockSize, 40);
+      spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
+                    varCandidate1, _blockSize, 40);
+    }
+    mvinfo* mvs[2] = {varCandidate0, varCandidate1};
+    imgpel* refs[2] = {prevPadded, nextPadded};
+    MC(refs, mvs, imgCurrFrame, 40, 2);
+    MC(prevPadded, mcF, varCandidate0, 40);
+    MC(nextPadded, mcB, varCandidate1, 40);
   }
-
-  MC(prevPadded, mcF, varCandidate0, 40);
-  MC(nextPadded, mcB, varCandidate1, 40);
-
-  mvinfo* mvs[2] = {varCandidate0, varCandidate1};
-  imgpel* refs[2] = {prevPadded, nextPadded};
-  MC(refs, mvs, imgCurrFrame, 40);
 
   _model->correlationNoiseModeling(mcF, mcB);
 
   // delete all buffers
-  delete []  prevUChroma;
-  delete []  prevVChroma;
-  delete []  nextUChroma;
-  delete []  nextVChroma;
-  delete []  currUChroma;
-  delete []  currVChroma;
-  delete []  pUPadded;
-  delete []  pVPadded;
-  delete []  nUPadded;
-  delete []  nVPadded;
-  delete []  cUPadded;
-  delete []  cVPadded;
-  delete []  nextPadded;
-  delete []  prevPadded;
-  delete []  mcF;
-  delete []  mcB;
+  delete [] varCandidate0;
+  delete [] varCandidate1;
+  delete [] varCandidate2;
+  delete [] varCandidate3;
+  delete [] prevUChroma;
+  delete [] prevVChroma;
+  delete [] nextUChroma;
+  delete [] nextVChroma;
+  delete [] currUChroma;
+  delete [] currVChroma;
+  delete [] pUPadded;
+  delete [] pVPadded;
+  delete [] nUPadded;
+  delete [] nVPadded;
+  delete [] cUPadded;
+  delete [] cVPadded;
+  delete [] nextPadded;
+  delete [] prevPadded;
+  delete [] mcF;
+  delete [] mcB;
 }
 
 // -----------------------------------------------------------------------------
@@ -295,8 +250,8 @@ void SideInformation::oracle_MEMC(imgpel* imgPrevKey, imgpel* imgNextKey,
   pad(imgNextKey, nextPadded, 40);
   pad(currLuma, currPadded, 40);
 
-  ME(imgPrevKey, currLuma, imgPrevKey, currLuma, varCandidate0);
-  ME(imgNextKey, currLuma, imgNextKey, currLuma, varCandidate1);
+  ME(imgPrevKey, currLuma, varCandidate0);
+  ME(imgNextKey, currLuma, varCandidate1);
 
   for (int iter = 0; iter < _ss; iter++) {
     spatialSmooth(prevPadded, currPadded,
@@ -310,7 +265,7 @@ void SideInformation::oracle_MEMC(imgpel* imgPrevKey, imgpel* imgNextKey,
 
   mvinfo* mvs[2] = {varCandidate0, varCandidate1};
   imgpel* refs[2] = {prevPadded, nextPadded};
-  MC(refs, mvs, imgResult, 40);
+  MC(refs, mvs, imgResult, 40, 2);
 
   _model->correlationNoiseModeling(mcF, mcB);
 
@@ -321,6 +276,7 @@ void SideInformation::oracle_MEMC(imgpel* imgPrevKey, imgpel* imgNextKey,
   delete []  mcF;
   delete []  mcB;
 }
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 /*
@@ -552,8 +508,8 @@ SideInformation::MC(imgpel* imgPrev, imgpel* imgDst, int padSize)
 #endif
 
 void
-SideInformation::MC(imgpel* refs[2], mvinfo* mvs[2],
-                    imgpel* imgDst, int padSize)
+SideInformation::MC(imgpel* refs[], mvinfo* mvs[],
+                    imgpel* imgDst, int padSize, int nRefs)
 {
   int cX, cY, mvX, mvY;
   double fWeightSum, fDist;
@@ -568,12 +524,12 @@ SideInformation::MC(imgpel* refs[2], mvinfo* mvs[2],
     for (int j = 0; j < _blockSize*_blockSize; j++)
         fTmp[j] = 0.0;
 
-    for (size_t fIdx = 0; fIdx < 2; fIdx++) {
+    for (int fIdx = 0; fIdx < nRefs; fIdx++) {
       fDist = mvs[fIdx][i].fDist;
       fWeightSum += (1/(fDist+(float)0.001));
     }
 
-    for (size_t fIdx = 0; fIdx < 2; fIdx++) {
+    for (int fIdx = 0; fIdx < nRefs; fIdx++) {
       candidate = mvs[fIdx];
       cX   = candidate[i].iCx;
       cY   = candidate[i].iCy;

@@ -49,6 +49,7 @@ Decoder::Decoder(map<string, string> configMap)
     _files->addFile("oracle", configMap["OracleFile"])->openFile("rb");
 
   // Parse other configuration parameters
+  _doubleMV = (bool)atoi(configMap["DoubleMV"].c_str());
   _trans = new Transform(this);
   _model = new CorrModel(this, _trans);
   _si    = new SideInformation(this, _model, configMap);
@@ -315,7 +316,7 @@ void Decoder::decodeWzFrame()
       if (idx % 2 == 0 && _MEMode == 0) {
         _si->chroma_MEMC(prevChroma, prevLuma,
                          nextKeyChroma, nextKeyLuma,
-                         currChroma, imgSI);
+                         currChroma, imgSI, _doubleMV);
       } else if (idx % 2 == 0 && _MEMode == 1) {
         fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
         fread(currLuma, _frameSize, 1, oracleReadPtr);

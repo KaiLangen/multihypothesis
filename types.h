@@ -31,7 +31,6 @@ typedef struct _mvinfo {
   float fDist;
   bool  bOMBCFlag;
   int frameNo;
-  unsigned int SAD;
 } mvinfo;
 
 enum CAVLCBlockTypes {

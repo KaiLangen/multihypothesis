@@ -27,6 +27,7 @@ def parse_output(filename):
             psnrWZ.append(float(m.group(0)))
 
     nFrames = len(frameOrder)
+    print(nFrames, len(psnrSI), len(psnrWZ))
     psnrWZ = [psnrWZ[i] - psnrSI[i] for i in range(nFrames)]
     return zip(frameOrder, psnrSI, psnrWZ, frameKB)
 
@@ -50,6 +51,9 @@ def parse_keystats(filename):
 ###############################################################################
 
 if __name__ == '__main__':       
+    if len(sys.argv) < 5:
+        print("Usage: python visualize_SI_PSNR.py dataFile gop type statFile")
+        sys.exit()
     f1 = sys.argv[1]
     gop = int(sys.argv[2]);
     name = sys.argv[3]
@@ -112,7 +116,7 @@ if __name__ == '__main__':
     ax2.plot(order+0.5, nkbytes, color=colorCycle[4], marker='s')
 
     ax1.legend(loc='best')
-    ax1.set_ylim(20,50)
+#    ax1.set_ylim(20,50)
     ax1.set_xlim(0,nFrames)
     fig.tight_layout()
     plt.savefig("{}_si_gop{}.png".format(name,gop))

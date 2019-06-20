@@ -19,7 +19,7 @@ public:
 
   void chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
                    imgpel* nextChroma, imgpel* imgnextKey,
-                   imgpel* currChroma, imgpel* imgCurrFrame);
+                   imgpel* currChroma, imgpel* imgCurrFrame, bool isDoubleMV);
 
   void oracle_MEMC(imgpel* imgPrevKey, imgpel* imgNextKey,
                    imgpel* currLuma, imgpel* imgResult);
@@ -61,20 +61,21 @@ private:
 
 
   // Chroma-ME functions
-  int TSS(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
-          mvinfo& mv, int step, int center);
-
-  void ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
-          mvinfo& mv, int p, int center);
+  void ES(mvinfo& mv, int p, int center,
+          imgpel* ref1, imgpel* trg1,
+          imgpel* ref2, imgpel* trg2);
 
   void ME(imgpel* refFrameU, imgpel* currFrameU,
           imgpel* refFrameV, imgpel* currFrameV,
           mvinfo* candidate);
 
+  void ME(imgpel* refFrame, imgpel* currFrame,
+          mvinfo* candidate);
+
   void MC(imgpel* imgPrev, imgpel* imgDst, mvinfo* candidate, int padSize);
 
-  void MC(imgpel* refs[2], mvinfo* mvs[2],
-          imgpel* imgDst, int padSize);
+  void MC(imgpel* refs[], mvinfo* mvs[],
+          imgpel* imgDst, int padSize, int nRefs);
 
   void spatialSmooth(imgpel* rU, imgpel* rV,
                      imgpel* cU, imgpel* cV,

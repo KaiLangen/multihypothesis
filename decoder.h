@@ -67,6 +67,7 @@ private:
   CavlcDec*         _cavlcV;
   LdpcaDec*         _ldpca;
 
+  bool              _doubleMV;
   int               _maxValue[4][4];
 
   int               _rcBitPlaneNum;
