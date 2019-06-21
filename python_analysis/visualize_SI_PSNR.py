@@ -94,30 +94,32 @@ if __name__ == '__main__':
     # get key-frame stats
     keyNo, keyPsnr = zip(*[(i, avgKeyPsnr) for i in range(0, nFrames+1, gop)])
     nFrames += len(keyNo)
-    plt.bar(keyNo, keyPsnr, color=colorCycle[3], label='Key Frames')
+    plt.bar(keyNo, keyPsnr, color=colorCycle[3],
+            label='Key Frames', align='center')
 
     # separate lists into even and odd wz frames
     for i in range(0,2):
         avg = sum(psnrSI[i::2])/len(psnrSI[i::2])
         print("{}, Avg PSNR={}".format(proposed_labels[i], avg))
         ax1.bar(order[i::2], psnrSI[i::2], color=colorCycle[i],
-                label="{}".format(proposed_labels[i]))
+                align='center', label="{}".format(proposed_labels[i]))
         if i == 0:
             ax1.bar(order[i::2], psnrWZ[i::2], color=colorCycle[2],
-                    bottom=np.array(psnrSI[i::2]))
+                    align='center', bottom=np.array(psnrSI[i::2]))
         else: 
             ax1.bar(order[i::2], psnrWZ[i::2], color=colorCycle[2],
-                    label='WZ reconstruction',
+                    align='center', label='WZ reconstruction',
                     bottom=np.array(psnrSI[i::2]))
 
     order = np.array(order, dtype=int)
     ax2 = ax1.twinx()
     ax2.set_ylabel('kB / frame')
-    ax2.plot(order+0.5, nkbytes, color=colorCycle[4], marker='s')
+    ax2.plot(order, nkbytes, color=colorCycle[4], marker='s')
 
     ax1.legend(loc='best')
 #    ax1.set_ylim(20,50)
-    ax1.set_xlim(0,nFrames)
+    ax1.set_xlim(-1,nFrames+1)
+    ax1.xaxis.set_ticks(np.arange(0, nFrames, 2)) 
     fig.tight_layout()
     plt.savefig("{}_si_gop{}.png".format(name,gop))
-#    plt.show()
+    plt.show()

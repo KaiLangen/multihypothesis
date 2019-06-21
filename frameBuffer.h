@@ -10,6 +10,11 @@ using namespace std;
 class RefBuffer
 {
 public:
+  // Each frame is represented as 4 buffers to reduce computation
+  // 1 - original YUV frame
+  // 2 - Upsampled/Padded U channel
+  // 3 - Upsampled/Padded V channel
+  // 4 - Padded Y channel
   vector<vector<imgpel*>> _refFrames;
   vector<imgpel*> _currFrame;
   vector<imgpel*> _prevKeyFrame;

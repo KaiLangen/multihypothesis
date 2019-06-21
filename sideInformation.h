@@ -20,6 +20,8 @@ public:
 
   void chroma_MEMC(RefBuffer* refFrames, imgpel* sideInfo);
 
+  void oracle_MEMC(RefBuffer* refFrames, imgpel* sideInfo);
+
   void getResidualFrame(imgpel* bRefFrame, imgpel* fRef,
                         imgpel* curr, int* residue, int* rcList);
 

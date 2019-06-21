@@ -24,96 +24,6 @@ static int find_min(unsigned int costs[9])
   return location;
 }
 
-/**
- * Three Step Search Algorithm
- * description: full-pixel motion search. Looks for the block in ref
- *     that is closest to the block in trg at the center coordinates.
- * param:
- *     trg       - target frame
- *     ref       - reference frame
- *     mv        - motion vector reference object
- *     step      - starting step size for TSS
- *     center    - coordinates of the upper-left pixel in the target block
- *     width     - width of the frame(s)
- *     height    - height of the frame(s)
- *     blockSize - size of the block (height and width).
- *
- *
- */
-void SideInformation::TSS(imgpel* trgU, imgpel* trgV,
-                          imgpel* refU, imgpel* refV,
-                          mvinfo& mv, int step, int center)
-{
-  // search start location
-  unsigned int costs[9] = {UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX,
-                 UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX};
-  int locations[9] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};
-  int loc, og, cx, cy, x, y;
-  og = center;
-  // calculate the first center
-  // avoid recalculating the center within the loop
-  costs[4] = calcSAD(&trgU[og], &refU[center], _width, _blockSize);
-  costs[4] += calcSAD(&trgV[og], &refV[center], _width, _blockSize);
-  locations[4] = center;
-
-  while(step >= 1)
-  {
-    // center coordinates in the image = (cy, cx)
-    cy = center / _width;
-    cx = center % _width;
-    // coordinates in the cost matrix = (i,j)
-    for(int i = 0; i < 3; ++i)
-    {
-      for(int j = 0; j < 3; ++j)
-      {
-        // the 9 pts formed by stepping away from the center = (y, x)
-        //
-        // (cy-step, cx-step), (cy-step,      cx), (cy-step, cx+step)
-        // (cy     , cx-step), (cy     ,      cx), (cy     , cx+step)
-        // (cy+step, cx-step), (cy+step,      cx), (cy+step, cx+step)
-        y = cy + (i-1) * step;
-        x = cx + (j-1) * step;
-
-        // check if the pt coordinates fall outside of the image
-        if(x < 0 || x >= _width - _blockSize ||
-           y < 0 || y >= _height - _blockSize ||
-           (i == 1 && j == 1))
-        {
-          continue;
-        }
-        costs[i*3 + j] = calcSAD(&trgU[og],
-                                 &refU[y*_width + x],
-                                 _width,
-                                 _blockSize);
-        costs[i*3 + j] += calcSAD(&trgV[og],
-                                 &refV[y*_width + x],
-                                 _width,
-                                 _blockSize);
-        locations[i*3 + j] = y*_width + x;
-      }
-    }
-    // re-center the search window on the local minimum
-    loc = find_min(costs);
-    center = locations[loc];
-    step /= 2;
-
-    // set the center and location
-    costs[4] = costs[loc];
-    locations[4] = center;
-  }
-
-  x = og % _width;
-  y = og / _width;
-  cx = center % _width;
-  cy = center / _width;
-  // set old coordinates in MV
-  mv.iCx = x;
-  mv.iCy = y;
-  // MV is new location - original location
-  mv.iMvx = cx - x;
-  mv.iMvy = cy - y;
-}
-
 void
 SideInformation::ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
                     mvinfo& mv, int p, int center, int padSize)
@@ -156,6 +66,7 @@ SideInformation::ES(imgpel* trgU, imgpel* trgV, imgpel* refU, imgpel* refV,
   mv.iCy = cy - padSize;
   mv.iMvx = x - cx;
   mv.iMvy = y - cy;
+  mv.fDist = (float)mincost;
 }
 
 void
@@ -241,6 +152,65 @@ void SideInformation::chroma_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
   _model->correlationNoiseModeling(mc1, mc2);
   delete [] currUChroma;
   delete [] currVChroma;
+  delete [] mc1;
+  delete [] mc2;
+  for (auto m : mvs)
+    delete [] m;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+void SideInformation::oracle_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
+{
+  if (_p == 0) {
+    memcpy(sideInfo, refFrames->_prevKeyFrame[0], 3*(_frameSize>>1));
+    return;
+  }
+  int padSize = 40;
+  imgpel* mc1 = new imgpel[_frameSize];
+  imgpel* mc2 = new imgpel[_frameSize];
+  auto currFrame = refFrames->_currFrame;
+  auto prevKey = refFrames->_prevKeyFrame;
+  auto nextKey = refFrames->_nextKeyFrame;
+
+  pad(currFrame[0], currFrame[3], _width, _height, padSize);
+
+  vector<mvinfo*> mvs;
+  vector<imgpel*> refs;
+  // prev Key
+  mvs.push_back(new mvinfo[_nmv]);
+  refs.push_back(prevKey[3]);
+  ME(prevKey[3], currFrame[3], prevKey[3], currFrame[3], mvs.back());
+  for (int iter = 0; iter < _ss; iter++) {
+    spatialSmooth(prevKey[3], prevKey[3], currFrame[3], currFrame[3],
+                  mvs.back(), _blockSize, padSize); 
+  }
+
+  // next Key
+  mvs.push_back(new mvinfo[_nmv]);
+  refs.push_back(nextKey[3]);
+  ME(nextKey[3], currFrame[3], nextKey[3], currFrame[3], mvs.back());
+  for (int iter = 0; iter < _ss; iter++) {
+    spatialSmooth(nextKey[3], nextKey[3], currFrame[3], currFrame[3],
+                  mvs.back(), _blockSize, padSize);
+  }
+
+  // reconstructed WZ frames
+  for(auto it = refFrames->begin(); it != refFrames->end(); it++)
+  {
+    mvs.push_back(new mvinfo[_nmv]);
+    refs.push_back((*it)[3]);
+    ME((*it)[3], currFrame[3], (*it)[3], currFrame[3], mvs.back());
+    for (int iter = 0; iter < _ss; iter++) {
+      spatialSmooth((*it)[3], (*it)[3], currFrame[3], currFrame[3],
+                    mvs.back(), _blockSize, padSize); 
+    }
+  }
+  MC(sideInfo, mvs, refs, padSize);
+  MC(mc1, mvs[0], refs[0], padSize);
+  MC(mc2, mvs[1], refs[1], padSize);
+
+  _model->correlationNoiseModeling(mc1, mc2);
   delete [] mc1;
   delete [] mc2;
   for (auto m : mvs)

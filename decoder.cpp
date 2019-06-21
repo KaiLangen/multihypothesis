@@ -183,10 +183,10 @@ void Decoder::decodeWzFrame()
   imgpel* currChroma    = currFrame + _frameSize;
   imgpel* prevKeyChroma = prevKey + _frameSize;
   imgpel* nextKeyChroma = nextKey + _frameSize;
-  imgpel* prevFrame;
-  imgpel* nextFrame;
   imgpel* imgSI         = _fb->getSideInfoFrame();
   imgpel* imgRefinedSI  = new imgpel[_frameSize];
+  imgpel* nextFrame     = new imgpel[fullFrameSize];
+  imgpel* prevFrame     = new imgpel[fullFrameSize];
   int* iDCT             = _fb->getDctFrame();
   int* iDCTQ            = _fb->getQuantDctFrame();
   int* iDecoded         = _fb->getDecFrame();
@@ -231,15 +231,15 @@ void Decoder::decodeWzFrame()
     // write prevKey to output file
     fwrite(prevKey, fullFrameSize, 1, fWritePtr);
 
-    // assign ref pointers
-    prevFrame = prevKey;
-    nextFrame = nextKey;
+    // copy into frame buffers
+    memcpy(prevFrame, prevKey, fullFrameSize);
+    memcpy(nextFrame, nextKey, fullFrameSize);
 
     refFrames->initPrevNextBuffers();
     int idx = 2;
     while (idx <= _gop) {
       if (idx == _gop) {
-        nextFrame = nextKey;
+        memcpy(nextFrame, nextKey, fullFrameSize);
         idx--;
         continue;
       }
@@ -311,23 +311,28 @@ void Decoder::decodeWzFrame()
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
       if (idx % 2 == 0) {
+       if (_MEMode == 0) {
         _si->chroma_MEMC(refFrames, imgSI);
+       } else if (_MEMode == 1) {
+         fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
+         fread(currFrame, fullFrameSize, 1, oracleReadPtr);
+         _si->oracle_MEMC(refFrames, imgSI);
+       } else if (_MEMode == 2) {
+         fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
+         fread(currFrame, fullFrameSize, 1, oracleReadPtr);
+         _si->chroma_MEMC(refFrames, imgSI);
+       }
+
       } else {
         _si->sideInfoMCI(prevFrame, nextFrame, imgSI);
       }
 
       float currPSNRSI = calcPSNR(oriCurrFrame, imgSI, _frameSize);
-      float currPSNRU = calcPSNR(oriCurrChroma, currChroma, chsize);
-      float currPSNRV = calcPSNR(oriCurrChroma+chsize, currChroma+chsize, chsize);
       cout << "PSNR SI: " << currPSNRSI << endl;
-      cout << "PSNR U: " << currPSNRU << endl;
-      cout << "PSNR V: " << currPSNRV << endl;
-      float prevPSNR = calcPSNR(oriCurrFrame, prevKey, _frameSize);
-      cout << "PSNR PREV: " << prevPSNR << endl;
       dPSNRSIAvg += currPSNRSI;
-      dPSNRUAvg += currPSNRU;
-      dPSNRVAvg += currPSNRV;
-      dPSNRPrevSIAvg += prevPSNR;
+      dPSNRUAvg += calcPSNR(oriCurrChroma, currChroma, chsize);
+      dPSNRVAvg += calcPSNR(oriCurrChroma+chsize, currChroma+chsize, chsize);
+      dPSNRPrevSIAvg +=calcPSNR(oriCurrFrame, prevKey, _frameSize);
       dPSNRPrevUAvg += calcPSNR(oriCurrChroma, prevKeyChroma, chsize);
       dPSNRPrevVAvg += calcPSNR(oriCurrChroma+chsize,
                                 prevKeyChroma+chsize, chsize);
@@ -391,7 +396,7 @@ void Decoder::decodeWzFrame()
 
       totalrate += dTotalRate;
       dPSNRAvg += calcPSNR(oriCurrFrame, currFrame, _frameSize);
-      cout << "Curr bytes (Y frame): " << dTotalRate << " Kbytes" << endl;
+      cout << endl << "Curr Rate (Y frame): " << dTotalRate << " Kbytes" << endl;
 
       cout << "side information quality " << currPSNRSI << endl;
       cout << "PSNR WZ: ";
@@ -402,14 +407,13 @@ void Decoder::decodeWzFrame()
       
       // SI was generated using Chroma-ME, go back a frame
       if (idx % 2 == 0) {
-        // update nextFrame ptr
-        nextFrame = refFrames->getCurrFrame()[0];
+        memcpy(nextFrame, currFrame, fullFrameSize);
         idx--;
       }
       // SI was generated using MCI
       else if (idx < _gop-1) {
         // update prevFrame ptr
-        prevFrame = nextFrame;
+        memcpy(prevFrame, nextFrame, fullFrameSize);
 
         // write curr and next frames, then skip forward three frame
         fwrite(currFrame, fullFrameSize, 1, fWritePtr);
