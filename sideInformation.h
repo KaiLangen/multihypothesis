@@ -75,9 +75,6 @@ private:
   void MC(imgpel* sideInfo, mvinfo* candidate,
           imgpel* ref, int padSize);
 
-  void MC(imgpel* refs[], mvinfo* mvs[],
-          imgpel* imgDst, int padSize, int nRefs);
-
   void spatialSmooth(imgpel* rU, imgpel* rV,
                      imgpel* cU, imgpel* cV,
                      mvinfo* varCandidate,

@@ -322,7 +322,6 @@ void Decoder::decodeWzFrame()
          fread(currFrame, fullFrameSize, 1, oracleReadPtr);
          _si->chroma_MEMC(refFrames, imgSI);
        }
-
       } else {
         _si->sideInfoMCI(prevFrame, nextFrame, imgSI);
       }
