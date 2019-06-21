@@ -123,10 +123,6 @@ void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
     memcpy(imgCurrFrame, imgPrevKey, _frameSize);
     return;
   }
-  mvinfo *varCandidate0 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
-  mvinfo *varCandidate1 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
-  mvinfo *varCandidate2 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
-  mvinfo *varCandidate3 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
   imgpel* prevUChroma = new imgpel[_frameSize];
   imgpel* prevVChroma = new imgpel[_frameSize];
   imgpel* nextUChroma = new imgpel[_frameSize];
@@ -166,51 +162,24 @@ void SideInformation::chroma_MEMC(imgpel* prevChroma, imgpel* imgPrevKey,
   pad(imgPrevKey, prevPadded, 40);
   pad(imgNextKey, nextPadded, 40);
 
-  if (isDoubleMV) {
-    ME(prevUChroma, currUChroma, varCandidate0);
-    ME(prevVChroma, currVChroma, varCandidate1);
-    ME(nextUChroma, currUChroma, varCandidate2);
-    ME(nextVChroma, currVChroma, varCandidate3);
+  ME(prevUChroma, currUChroma, prevVChroma, currVChroma, _varList0);
+  ME(nextUChroma, currUChroma, nextVChroma, currVChroma, _varList1);
 
-    for (int iter = 0; iter < _ss; iter++) {
-      spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
-                    varCandidate0, _blockSize, 40);
-      spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
-                    varCandidate1, _blockSize, 40);
-      spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
-                    varCandidate2, _blockSize, 40);
-      spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
-                    varCandidate3, _blockSize, 40);
-    }
-    mvinfo* mvs[4] = {varCandidate0, varCandidate1, varCandidate2, varCandidate3};
-    imgpel* refs[4] = {prevPadded, prevPadded, nextPadded, nextPadded};
-    MC(refs, mvs, imgCurrFrame, 40, 4);
-    MC(prevPadded, mcF, varCandidate0, 40);
-    MC(nextPadded, mcB, varCandidate2, 40);
-  } else {
-    ME(prevUChroma, currUChroma, prevVChroma, currVChroma, varCandidate0);
-    ME(nextUChroma, currUChroma, nextVChroma, currVChroma, varCandidate1);
-
-    for (int iter = 0; iter < _ss; iter++) {
-      spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
-                    varCandidate0, _blockSize, 40);
-      spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
-                    varCandidate1, _blockSize, 40);
-    }
-    mvinfo* mvs[2] = {varCandidate0, varCandidate1};
-    imgpel* refs[2] = {prevPadded, nextPadded};
-    MC(refs, mvs, imgCurrFrame, 40, 2);
-    MC(prevPadded, mcF, varCandidate0, 40);
-    MC(nextPadded, mcB, varCandidate1, 40);
+  for (int iter = 0; iter < _ss; iter++) {
+    spatialSmooth(pUPadded, pVPadded, cUPadded, cVPadded,
+                  _varList0, _blockSize, 40);
+    spatialSmooth(nUPadded, nVPadded, cUPadded, cVPadded,
+                  _varList1, _blockSize, 40);
   }
+  mvinfo* mvs[2] = {_varList0, _varList1};
+  imgpel* refs[2] = {prevPadded, nextPadded};
+  MC(refs, mvs, imgCurrFrame, 40, 2);
+  MC(prevPadded, mcF, _varList0, 40);
+  MC(nextPadded, mcB, _varList1, 40);
 
   _model->correlationNoiseModeling(mcF, mcB);
 
   // delete all buffers
-  delete [] varCandidate0;
-  delete [] varCandidate1;
-  delete [] varCandidate2;
-  delete [] varCandidate3;
   delete [] prevUChroma;
   delete [] prevVChroma;
   delete [] nextUChroma;
@@ -238,8 +207,6 @@ void SideInformation::oracle_MEMC(imgpel* imgPrevKey, imgpel* imgNextKey,
     memcpy(imgResult, imgPrevKey, _frameSize);
     return;
   }
-  mvinfo *varCandidate0 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
-  mvinfo *varCandidate1 = new mvinfo[_width*_height/(_blockSize*_blockSize)];
   imgpel* nextPadded = new imgpel[(_width+80)*(_height+80)];
   imgpel* prevPadded = new imgpel[(_width+80)*(_height+80)];
   imgpel* currPadded = new imgpel[(_width+80)*(_height+80)];
@@ -250,20 +217,20 @@ void SideInformation::oracle_MEMC(imgpel* imgPrevKey, imgpel* imgNextKey,
   pad(imgNextKey, nextPadded, 40);
   pad(currLuma, currPadded, 40);
 
-  ME(imgPrevKey, currLuma, varCandidate0);
-  ME(imgNextKey, currLuma, varCandidate1);
+  ME(imgPrevKey, currLuma, _varList0);
+  ME(imgNextKey, currLuma, _varList1);
 
   for (int iter = 0; iter < _ss; iter++) {
     spatialSmooth(prevPadded, currPadded,
-                  varCandidate0, _blockSize, 40);
+                  _varList0, _blockSize, 40);
     spatialSmooth(nextPadded, currPadded,
-                  varCandidate1, _blockSize, 40);
+                  _varList1, _blockSize, 40);
   }
 
-  MC(prevPadded, mcF, varCandidate0, 40);
-  MC(nextPadded, mcB, varCandidate1, 40);
+  MC(prevPadded, mcF, _varList0, 40);
+  MC(nextPadded, mcB, _varList1, 40);
 
-  mvinfo* mvs[2] = {varCandidate0, varCandidate1};
+  mvinfo* mvs[2] = {_varList0, _varList1};
   imgpel* refs[2] = {prevPadded, nextPadded};
   MC(refs, mvs, imgResult, 40, 2);
 
