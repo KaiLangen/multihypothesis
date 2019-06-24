@@ -52,12 +52,13 @@ def parse_keystats(filename):
 
 if __name__ == '__main__':       
     if len(sys.argv) < 5:
-        print("Usage: python visualize_SI_PSNR.py dataFile gop type statFile")
+        print("Usage: python visualize_SI_PSNR.py dataFile gop statFile title")
         sys.exit()
     f1 = sys.argv[1]
     gop = int(sys.argv[2]);
-    name = sys.argv[3]
-    statFile = sys.argv[4]
+    statFile = sys.argv[3]
+    label = sys.argv[4]
+    title = "".join(sys.argv[5:])
     if not exists(f1):
         print("Error: invalid output file: {}".format(f1))
         sys.exit()
@@ -65,7 +66,8 @@ if __name__ == '__main__':
         print("Error: invalid JM stats file: {}".format(statFile))
         sys.exit()
     colorCycle = ['#58508d', '#bc5090', '#f24545', '#003f5c', '#3a3a3c']
-    proposed_labels = ["Chroma-ME", "MCI"]
+
+    proposed_labels = ["{}".format(label), "MCI"]
 
     # parse data from file
     tup = parse_output(f1)
@@ -89,7 +91,7 @@ if __name__ == '__main__':
     fig, ax1 = plt.subplots()
     ax1.set_xlabel('Frame #')
     ax1.set_ylabel('PSNR')
-    plt.title("{} Codec: GOP={}".format(name,gop))
+    plt.title("{}".format(title))
 
     # get key-frame stats
     keyNo, keyPsnr = zip(*[(i, avgKeyPsnr) for i in range(0, nFrames+1, gop)])
@@ -114,12 +116,13 @@ if __name__ == '__main__':
     order = np.array(order, dtype=int)
     ax2 = ax1.twinx()
     ax2.set_ylabel('kB / frame')
-    ax2.plot(order, nkbytes, color=colorCycle[4], marker='s')
+    ax2.plot(order, nkbytes, color='y', marker='D', linewidth=3)
+    ax2.set_ylim(0,max(nkbytes)+1)
 
-    ax1.legend(loc='best')
+    ax1.legend(loc='lower right')
 #    ax1.set_ylim(20,50)
     ax1.set_xlim(-1,nFrames+1)
     ax1.xaxis.set_ticks(np.arange(0, nFrames, 2)) 
     fig.tight_layout()
-    plt.savefig("{}_si_gop{}.png".format(name,gop))
+    plt.savefig("newImg.png")
     plt.show()

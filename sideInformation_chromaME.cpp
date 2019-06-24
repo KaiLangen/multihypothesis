@@ -214,6 +214,7 @@ void SideInformation::chroma_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
     spatialSmooth(prevKey[1], prevKey[2], currFrame[1], currFrame[2],
                   mvs.back(), _blockSize, padSize); 
   }
+  memcpy(_varList0, mvs[0], _nmv * sizeof(mvinfo));
 
   // next Key
   mvs.push_back(new mvinfo[_nmv]);
@@ -223,6 +224,7 @@ void SideInformation::chroma_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
     spatialSmooth(nextKey[1], nextKey[2], currFrame[1], currFrame[2],
                   mvs.back(), _blockSize, padSize);
   }
+  memcpy(_varList1, mvs[1], _nmv * sizeof(mvinfo));
 
   // reconstructed WZ frames
   for(auto it = refFrames->begin(); it != refFrames->end(); it++)
@@ -246,7 +248,6 @@ void SideInformation::chroma_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
   delete [] mc2;
   for (auto m : mvs)
     delete [] m;
-<<<<<<< HEAD
 }
 
 // -----------------------------------------------------------------------------
@@ -276,6 +277,7 @@ void SideInformation::oracle_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
     spatialSmooth(prevKey[3], prevKey[3], currFrame[3], currFrame[3],
                   mvs.back(), _blockSize, padSize); 
   }
+  memcpy(_varList0, mvs[0], _nmv * sizeof(mvinfo));
 
   // next Key
   mvs.push_back(new mvinfo[_nmv]);
@@ -285,6 +287,7 @@ void SideInformation::oracle_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
     spatialSmooth(nextKey[3], nextKey[3], currFrame[3], currFrame[3],
                   mvs.back(), _blockSize, padSize);
   }
+  memcpy(_varList1, mvs[1], _nmv * sizeof(mvinfo));
 
   // reconstructed WZ frames
   for(auto it = refFrames->begin(); it != refFrames->end(); it++)
