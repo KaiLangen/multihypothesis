@@ -202,7 +202,7 @@ void SideInformation::sideInfoMCI(imgpel* imgPrevKey,
       mc2[i] = (mc1_b[i] + mc2_b[i] + 1)/2;
     }
 
-  _model->correlationNoiseModeling(mc1, mc2);
+//  _model->correlationNoiseModeling(mc1, mc2);
 
   delete [] mc1;
   delete [] mc2;

@@ -31,7 +31,7 @@ int main(int argc, char** argv)
     Encoder* encoder = new Encoder(configMap);
 
     encoder->encodeKeyFrame();
-    encoder->encodeWzFrame();
+    encoder->encodeWzHeader();
 
     cout << endl;
     cout << "Bye" << endl;

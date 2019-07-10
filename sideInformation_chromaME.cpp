@@ -180,78 +180,6 @@ SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-void SideInformation::chroma_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
-{
-  if (_p == 0) {
-    memcpy(sideInfo, refFrames->_prevKeyFrame[0], 3*(_frameSize>>1));
-    return;
-  }
-  int ww = _width>>1;
-  int hh = _height>>1;
-  int chsize = _frameSize>>2;
-  int padSize = 40;
-  imgpel* currUChroma = new imgpel[_frameSize];
-  imgpel* currVChroma = new imgpel[_frameSize];
-  imgpel* mc1 = new imgpel[_frameSize];
-  imgpel* mc2 = new imgpel[_frameSize];
-  auto currFrame = refFrames->_currFrame;
-  auto prevKey = refFrames->_prevKeyFrame;
-  auto nextKey = refFrames->_nextKeyFrame;
-  imgpel* currChroma = currFrame[0] + _frameSize;
-
-  bilinear(currChroma, currUChroma, ww, hh, ww, hh, 0, 0);
-  bilinear(currChroma+chsize, currVChroma, ww, hh, ww, hh, 0, 0);
-  pad(currUChroma, currFrame[1], _width, _height, padSize);
-  pad(currVChroma, currFrame[2], _width, _height, padSize);
-
-  vector<mvinfo*> mvs;
-  vector<imgpel*> refs;
-  // prev Key
-  mvs.push_back(new mvinfo[_nmv]);
-  refs.push_back(prevKey[3]);
-  ME(prevKey[1], currFrame[1], prevKey[2], currFrame[2], mvs.back());
-  for (int iter = 0; iter < _ss; iter++) {
-    spatialSmooth(prevKey[1], prevKey[2], currFrame[1], currFrame[2],
-                  mvs.back(), _blockSize, padSize); 
-  }
-  memcpy(_varList0, mvs[0], _nmv * sizeof(mvinfo));
-
-  // next Key
-  mvs.push_back(new mvinfo[_nmv]);
-  refs.push_back(nextKey[3]);
-  ME(nextKey[1], currFrame[1], nextKey[2], currFrame[2], mvs.back());
-  for (int iter = 0; iter < _ss; iter++) {
-    spatialSmooth(nextKey[1], nextKey[2], currFrame[1], currFrame[2],
-                  mvs.back(), _blockSize, padSize);
-  }
-  memcpy(_varList1, mvs[1], _nmv * sizeof(mvinfo));
-
-  // reconstructed WZ frames
-  for(auto it = refFrames->begin(); it != refFrames->end(); it++)
-  {
-    mvs.push_back(new mvinfo[_nmv]);
-    refs.push_back((*it)[3]);
-    ME((*it)[1], currFrame[1], (*it)[2], currFrame[2], mvs.back());
-    for (int iter = 0; iter < _ss; iter++) {
-      spatialSmooth((*it)[1], (*it)[2], currFrame[1], currFrame[2],
-                    mvs.back(), _blockSize, padSize); 
-    }
-  }
-  MC(sideInfo, mvs, refs, padSize);
-  MC(mc1, mvs[0], refs[0], padSize);
-  MC(mc2, mvs[1], refs[1], padSize);
-
-  _model->correlationNoiseModeling(mc1, mc2);
-  delete [] currUChroma;
-  delete [] currVChroma;
-  delete [] mc1;
-  delete [] mc2;
-  for (auto m : mvs)
-    delete [] m;
-}
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
 void SideInformation::oracle_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
 {
   if (_p == 0) {
@@ -259,8 +187,6 @@ void SideInformation::oracle_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
     return;
   }
   int padSize = 40;
-  imgpel* mc1 = new imgpel[_frameSize];
-  imgpel* mc2 = new imgpel[_frameSize];
   auto currFrame = refFrames->_currFrame;
   auto prevKey = refFrames->_prevKeyFrame;
   auto nextKey = refFrames->_nextKeyFrame;
@@ -301,12 +227,7 @@ void SideInformation::oracle_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
     }
   }
   MC(sideInfo, mvs, refs, padSize);
-  MC(mc1, mvs[0], refs[0], padSize);
-  MC(mc2, mvs[1], refs[1], padSize);
 
-  _model->correlationNoiseModeling(mc1, mc2);
-  delete [] mc1;
-  delete [] mc2;
   for (auto m : mvs)
     delete [] m;
 }
@@ -485,23 +406,4 @@ SideInformation::MC(imgpel* imgDst, vector<mvinfo*> mvs,
     }
   }
   delete [] fTmp;
-}
-
-void
-SideInformation::MC(imgpel* imgDst, mvinfo* candidate,
-                    imgpel* ref, int padSize)
-{
-  int cX, cY, mvX, mvY;
-  int paddedWidth = (2*padSize + _width);
-  for (int i = 0; i < _nmv; i++) {
-    cX   = candidate[i].iCx;
-    cY   = candidate[i].iCy;
-    mvX  = candidate[i].iCx + candidate[i].iMvx + padSize;
-    mvY  = candidate[i].iCy + candidate[i].iMvy + padSize;
-    for (int j = 0; j < _blockSize; j++) {
-      for (int k = 0; k < _blockSize; k++) {
-        imgDst[cX+k+(cY+j)*_width] = ref[k+mvX+(j+mvY)*paddedWidth];
-      }
-    }
-  }
 }

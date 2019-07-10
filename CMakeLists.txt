@@ -58,11 +58,11 @@ add_executable(decoder decoder.cpp
 target_link_libraries(decoder utils m)
 
 # Tester
-add_executable(tester  encoder.cpp
-                       cavlcEnc.cpp
-                       cavlcDec.cpp
-                       ldpcaEnc.cpp
-                       chroma_test.cpp
-)
-
-target_link_libraries(tester utils m)
+#add_executable(tester  encoder.cpp
+#                       cavlcEnc.cpp
+#                       cavlcDec.cpp
+#                       ldpcaEnc.cpp
+#                       chroma_test.cpp
+#)
+#
+#target_link_libraries(tester utils m)
