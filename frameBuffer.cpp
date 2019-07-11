@@ -17,24 +17,25 @@ RefBuffer::RefBuffer(int width, int height, int windowSize)
   _frameSize = width * height;
   _yuvFrameSize = 3*_frameSize>>1;
   _paddedFrameSize = (width+2*_padSize) * (height+2*_padSize);
+  _paddedChromaSize = ((width>>1)+_padSize) * ((height>>1)+_padSize);
   _refFrames.resize(windowSize, vector<imgpel*>(4));
   for (size_t i = 0; i < _refFrames.size(); i++) {
     _refFrames[i][0] = new imgpel[_yuvFrameSize];
-    _refFrames[i][1] = new imgpel[_paddedFrameSize];
-    _refFrames[i][2] = new imgpel[_paddedFrameSize];
+    _refFrames[i][1] = new imgpel[_paddedChromaSize];
+    _refFrames[i][2] = new imgpel[_paddedChromaSize];
     _refFrames[i][3] = new imgpel[_paddedFrameSize];
   }
   _currFrame.push_back(new imgpel[_yuvFrameSize]);
-  _currFrame.push_back(new imgpel[_paddedFrameSize]);
-  _currFrame.push_back(new imgpel[_paddedFrameSize]);
+  _currFrame.push_back(new imgpel[_paddedChromaSize]);
+  _currFrame.push_back(new imgpel[_paddedChromaSize]);
   _currFrame.push_back(new imgpel[_paddedFrameSize]);
   _prevKeyFrame.push_back(new imgpel[_yuvFrameSize]);
-  _prevKeyFrame.push_back(new imgpel[_paddedFrameSize]);
-  _prevKeyFrame.push_back(new imgpel[_paddedFrameSize]);
+  _prevKeyFrame.push_back(new imgpel[_paddedChromaSize]);
+  _prevKeyFrame.push_back(new imgpel[_paddedChromaSize]);
   _prevKeyFrame.push_back(new imgpel[_paddedFrameSize]);
   _nextKeyFrame.push_back(new imgpel[_yuvFrameSize]);
-  _nextKeyFrame.push_back(new imgpel[_paddedFrameSize]);
-  _nextKeyFrame.push_back(new imgpel[_paddedFrameSize]);
+  _nextKeyFrame.push_back(new imgpel[_paddedChromaSize]);
+  _nextKeyFrame.push_back(new imgpel[_paddedChromaSize]);
   _nextKeyFrame.push_back(new imgpel[_paddedFrameSize]);
 }
 
@@ -61,8 +62,8 @@ void RefBuffer::updateRecWindow()
     _isFull = true;
   }
   memcpy(_refFrames[_nextRec][0], _currFrame[0], _yuvFrameSize);
-  memcpy(_refFrames[_nextRec][1], _currFrame[1], _paddedFrameSize);
-  memcpy(_refFrames[_nextRec][2], _currFrame[2], _paddedFrameSize);
+  memcpy(_refFrames[_nextRec][1], _currFrame[1], _paddedChromaSize);
+  memcpy(_refFrames[_nextRec][2], _currFrame[2], _paddedChromaSize);
   pad(_currFrame[0], _currFrame[3], _width, _height, _padSize);
   memcpy(_refFrames[_nextRec][3], _currFrame[3], _paddedFrameSize);
   _nextRec++;
@@ -80,27 +81,14 @@ void RefBuffer::initPrevNextBuffers() {
   imgpel* prevV = prevU + chsize;
   imgpel* nextU = next[0] + _frameSize;
   imgpel* nextV = nextU + chsize;
-  imgpel* prevUChroma = new imgpel[_frameSize];
-  imgpel* prevVChroma = new imgpel[_frameSize];
-  imgpel* nextUChroma = new imgpel[_frameSize];
-  imgpel* nextVChroma = new imgpel[_frameSize];
 
-  bilinear(prevU, prevUChroma, ww, hh, ww, hh, 0, 0);
-  bilinear(prevV, prevVChroma, ww, hh, ww, hh, 0, 0);
-  bilinear(nextU, nextUChroma, ww, hh, ww, hh, 0, 0);
-  bilinear(nextV, nextVChroma, ww, hh, ww, hh, 0, 0);
-
-  pad(prevUChroma, prev[1], _width, _height, 40);
-  pad(prevVChroma, prev[2], _width, _height, 40);
+  pad(prevU, prev[1], ww, hh, 20);
+  pad(prevV, prev[2], ww, hh, 20);
   pad(prev[0], prev[3], _width, _height, 40);
-  pad(nextUChroma, next[1], _width, _height, 40);
-  pad(nextVChroma, next[2], _width, _height, 40);
+  pad(nextU, next[1], ww, hh, 20);
+  pad(nextV, next[2], ww, hh, 20);
   pad(next[0], next[3], _width, _height, 40);
 
-  delete [] prevUChroma;
-  delete [] nextUChroma;
-  delete [] prevVChroma;
-  delete [] nextVChroma;
 }
 
 // -----------------------------------------------------------------------------

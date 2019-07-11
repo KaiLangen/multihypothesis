@@ -182,8 +182,10 @@ SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
 // -----------------------------------------------------------------------------
 void SideInformation::oracle_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
 {
+  int chsize = (_width*_height)>>2;
   if (_p == 0) {
-    memcpy(sideInfo, refFrames->_prevKeyFrame[0], 3*(_frameSize>>1));
+    memcpy(sideInfo, refFrames->_prevKeyFrame[1], chsize);
+    memcpy(sideInfo+chsize, refFrames->_prevKeyFrame[2], chsize);
     return;
   }
   int padSize = 40;
@@ -194,39 +196,41 @@ void SideInformation::oracle_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
   pad(currFrame[0], currFrame[3], _width, _height, padSize);
 
   vector<mvinfo*> mvs;
-  vector<imgpel*> refs;
+  vector<imgpel*> refsU;
+  vector<imgpel*> refsV;
   // prev Key
   mvs.push_back(new mvinfo[_nmv]);
-  refs.push_back(prevKey[3]);
+  refsU.push_back(prevKey[1]);
+  refsV.push_back(prevKey[2]);
   ME(prevKey[3], currFrame[3], prevKey[3], currFrame[3], mvs.back());
   for (int iter = 0; iter < _ss; iter++) {
     spatialSmooth(prevKey[3], prevKey[3], currFrame[3], currFrame[3],
                   mvs.back(), _blockSize, padSize); 
   }
-  memcpy(_varList0, mvs[0], _nmv * sizeof(mvinfo));
-
   // next Key
   mvs.push_back(new mvinfo[_nmv]);
-  refs.push_back(nextKey[3]);
+  refsU.push_back(nextKey[1]);
+  refsV.push_back(nextKey[2]);
   ME(nextKey[3], currFrame[3], nextKey[3], currFrame[3], mvs.back());
   for (int iter = 0; iter < _ss; iter++) {
     spatialSmooth(nextKey[3], nextKey[3], currFrame[3], currFrame[3],
                   mvs.back(), _blockSize, padSize);
   }
-  memcpy(_varList1, mvs[1], _nmv * sizeof(mvinfo));
-
   // reconstructed WZ frames
   for(auto it = refFrames->begin(); it != refFrames->end(); it++)
   {
     mvs.push_back(new mvinfo[_nmv]);
-    refs.push_back((*it)[3]);
+    refsU.push_back((*it)[1]);
+    refsV.push_back((*it)[2]);
     ME((*it)[3], currFrame[3], (*it)[3], currFrame[3], mvs.back());
     for (int iter = 0; iter < _ss; iter++) {
       spatialSmooth((*it)[3], (*it)[3], currFrame[3], currFrame[3],
                     mvs.back(), _blockSize, padSize); 
     }
   }
-  MC(sideInfo, mvs, refs, padSize);
+
+  MC(sideInfo, mvs, refsU, padSize/2);
+  MC(sideInfo+chsize, mvs, refsV, padSize/2);
 
   for (auto m : mvs)
     delete [] m;
@@ -368,14 +372,16 @@ SideInformation::MC(imgpel* imgDst, vector<mvinfo*> mvs,
 {
   int cX, cY, mvX, mvY;
   double fWeightSum, fDist;
-  double* fTmp = new double[_blockSize*_blockSize];
+  int hblock = _blockSize>>1;
+  int ww = _width>>1;
+  double* fTmp = new double[hblock*hblock];
   mvinfo* candidate;
-  int paddedWidth = (2*padSize + _width);
+  int paddedWidth = (2*padSize + ww);
   imgpel* ref;
   for (int i = 0; i < _nmv; i++) {
     // init vals to zero
     fWeightSum = 0.0;
-    for (int j = 0; j < _blockSize*_blockSize; j++)
+    for (int j = 0; j < hblock*hblock; j++)
         fTmp[j] = 0.0;
     
     for (size_t fIdx = 0; fIdx < mvs.size(); fIdx++) {
@@ -385,22 +391,22 @@ SideInformation::MC(imgpel* imgDst, vector<mvinfo*> mvs,
 
     for (size_t fIdx = 0; fIdx < mvs.size(); fIdx++) {
       candidate = mvs[fIdx];
-      cX   = candidate[i].iCx;
-      cY   = candidate[i].iCy;
-      mvX  = cX + candidate[i].iMvx + padSize;
-      mvY  = cY + candidate[i].iMvy + padSize;
+      cX   = candidate[i].iCx/2;
+      cY   = candidate[i].iCy/2;
+      mvX  = cX + candidate[i].iMvx/2 + padSize;
+      mvY  = cY + candidate[i].iMvy/2 + padSize;
       fDist = candidate[i].fDist;
       ref = refs[fIdx];
-      for (int j = 0; j < _blockSize; j++) {
-        for (int k = 0; k < _blockSize; k++) {
-          fTmp[k+j*_blockSize] += ref[k+mvX+(j+mvY)*paddedWidth] *
+      for (int j = 0; j < hblock; j++) {
+        for (int k = 0; k < hblock; k++) {
+          fTmp[k+j*hblock] += ref[k+mvX+(j+mvY)*paddedWidth] *
                                   (1/(fDist+(float)0.001));
         }
       }
     }
-    for (int j = 0; j < _blockSize; j++) {
-      for (int k = 0; k < _blockSize; k++) {
-      imgDst[cX+k+(cY+j)*_width] = (imgpel)((fTmp[k+j*_blockSize]) /
+    for (int j = 0; j < hblock; j++) {
+      for (int k = 0; k < hblock; k++) {
+      imgDst[cX+k+(cY+j)*ww] = (imgpel)((fTmp[k+j*hblock]) /
                                             fWeightSum);
       }
     }

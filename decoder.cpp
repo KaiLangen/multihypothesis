@@ -1,4 +1,5 @@
 
+#include <iostream>
 #include <sstream>
 #include <fstream>
 
@@ -96,41 +97,20 @@ void Decoder::decodeWzFrame()
 
   clock_t timeStart, timeEnd;
   double cpuTime;
-  int cw = _frameWidth >> 1;
-  int ch = _frameHeight >> 1;
-  int chsize = _frameSize >> 2;
   int fullFrameSize = 3*(_frameSize>>1);
+  int chsize = _frameSize>>2;
 
 // Luma Buffers
   imgpel* oriCurrFrame  = _fb->getorigFrame();
   imgpel* currFrame     = _fb->getCurrFrame();
   imgpel* prevKey       = _fb->getPrevFrame();
   imgpel* nextKey       = _fb->getNextFrame();
-  imgpel* oriCurrChroma = oriCurrFrame + _frameSize;
-  imgpel* currChroma    = currFrame + _frameSize;
-  imgpel* prevKeyChroma = prevKey + _frameSize;
-  imgpel* nextKeyChroma = nextKey + _frameSize;
   imgpel* imgSI         = _fb->getSideInfoFrame();
-  imgpel* imgRefinedSI  = new imgpel[_frameSize];
   imgpel* nextFrame     = new imgpel[fullFrameSize];
   imgpel* prevFrame     = new imgpel[fullFrameSize];
-  int* iDCT             = _fb->getDctFrame();
-  int* iDCTQ            = _fb->getQuantDctFrame();
-  int* iDecoded         = _fb->getDecFrame();
-  int* iDecodedInvQ     = _fb->getInvQuantDecFrame();
-  int* iDCTBuffer       = new int [_frameSize];
-  int* iDCTResidual     = new int [_frameSize];
 
-// Chroma Buffers
-  int* iDecodedU        = new int[chsize];
-  int* iDecodedV        = new int[chsize];
-  int* iDctU            = new int[chsize];
-  int* iDctV            = new int[chsize];
-  int* iQuantU          = new int[chsize];
-  int* iQuantV          = new int[chsize];
   RefBuffer* refFrames  = _fb->getRefBuffer();
 
-  int x,y;
   double totalrate=0;
   double chromarate=0;
   double dKeyCodingRate[3] = {0., 0., 0.};
@@ -162,13 +142,8 @@ void Decoder::decodeWzFrame()
     memcpy(nextFrame, nextKey, fullFrameSize);
 
     refFrames->initPrevNextBuffers();
-    int idx = 2;
-    while (idx <= _gop) {
-      if (idx == _gop) {
-        memcpy(nextFrame, nextKey, fullFrameSize);
-        idx--;
-        continue;
-      }
+    int idx = 1;
+    while (idx < _gop) {
       // Start decoding the WZ frame
       int wzFrameNo = keyFrameNo*_gop + idx;
 
@@ -181,55 +156,48 @@ void Decoder::decodeWzFrame()
       // STAGE 2 - Create side information
       // ---------------------------------------------------------------------
       // Predict from coincident Chroma
-      if (idx % 2 == 0) {
-         fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
-         fread(currFrame, fullFrameSize, 1, oracleReadPtr);
-         _si->oracle_MEMC(refFrames, imgSI);
-      } else {
-        _si->sideInfoMCI(prevFrame, nextFrame, imgSI);
-      }
+       fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
+       fread(currFrame, fullFrameSize, 1, oracleReadPtr);
+       _si->oracle_MEMC(refFrames, imgSI);
 
-      float currPSNRSI = calcPSNR(oriCurrFrame, imgSI, _frameSize);
-      cout << "PSNR SI: " << currPSNRSI << endl;
-      dPSNRSIAvg += currPSNRSI;
-      dPSNRUAvg += calcPSNR(oriCurrChroma, currChroma, chsize);
-      dPSNRVAvg += calcPSNR(oriCurrChroma+chsize, currChroma+chsize, chsize);
-      dPSNRPrevSIAvg +=calcPSNR(oriCurrFrame, prevKey, _frameSize);
-      dPSNRPrevUAvg += calcPSNR(oriCurrChroma, prevKeyChroma, chsize);
-      dPSNRPrevVAvg += calcPSNR(oriCurrChroma+chsize,
-                                prevKeyChroma+chsize, chsize);
+      float currPSNRU = calcPSNR(oriCurrFrame+_frameSize, imgSI, chsize);
+      cout << "PSNR Recoloured Chroma (U): " << currPSNRU << endl;
 
-      dPSNRAvg += calcPSNR(oriCurrFrame, currFrame, _frameSize);
+      float currPSNRV = calcPSNR(oriCurrFrame+_frameSize+chsize, imgSI+chsize, chsize);
+      cout << "PSNR Recoloured Chroma (V): " << currPSNRU << endl;
+      dPSNRSIAvg += (currPSNRU + currPSNRV) / 2;
+      memcpy(currFrame+_frameSize, imgSI, _frameSize>>1);
+//      dPSNRAvg += calcPSNR(oriCurrFrame, currFrame, fullFrameSize);
 
-      cout << "side information quality " << currPSNRSI << endl;
-      cout << "PSNR WZ: ";
-      cout << calcPSNR(oriCurrFrame, currFrame, _frameSize) << endl << endl;
+      float currPSNRLuma = calcPSNR(oriCurrFrame, currFrame, _frameSize);
+      cout << "PSNR Luma:" << currPSNRLuma << endl;
+      cout << "PSNR Frame Avg: ";
+      cout << (currPSNRLuma*6 + currPSNRU + currPSNRV) / 8 << endl << endl;
 
       // update frameBuffer
       refFrames->updateRecWindow();
       
-      // SI was generated using Chroma-ME, go back a frame
-      if (idx % 2 == 0) {
-        memcpy(nextFrame, currFrame, fullFrameSize);
-        idx--;
-      }
-      // SI was generated using MCI
-      else if (idx < _gop-1) {
-        // update prevFrame ptr
-        memcpy(prevFrame, nextFrame, fullFrameSize);
-
-        // write curr and next frames, then skip forward three frame
-        fwrite(currFrame, fullFrameSize, 1, fWritePtr);
-        fwrite(nextFrame, fullFrameSize, 1, fWritePtr);
-        idx += 3;
-      }
-      // SI was generated using MCI and curr frame is LAST in the GOP
-      else {
+//      // SI was generated using Chroma-ME, go back a frame
+//      if (idx % 2 == 0) {
+//        memcpy(nextFrame, currFrame, fullFrameSize);
+//        idx--;
+//      }
+//      // SI was generated using MCI
+//      else if (idx < _gop-1) {
+//        // update prevFrame ptr
+//        memcpy(prevFrame, nextFrame, fullFrameSize);
+//
+//        // write curr and next frames, then skip forward three frame
+//        fwrite(currFrame, fullFrameSize, 1, fWritePtr);
+//        fwrite(nextFrame, fullFrameSize, 1, fWritePtr);
+//        idx += 3;
+//      }
+//      // SI was generated using MCI and curr frame is LAST in the GOP
+//      else {}
         // write only the current frame to output
         fwrite(currFrame, fullFrameSize, 1, fWritePtr);
-        idx += 3;
-      }
-      iDecodeWZFrames++;
+        idx++;
+        iDecodeWZFrames++;
     }
   }
 
@@ -258,8 +226,6 @@ void Decoder::decodeWzFrame()
   cout<<"Key Frame PSNRU     :   "<<dKeyPSNR[1]<<endl;
   cout<<"Key Frame PSNRV     :   "<<dKeyPSNR[2]<<endl;
   dPSNRAvg   /= iDecodeWZFrames;
-  cout<<"WZ Avg Rate  (kbps) :   "<<totalrate/double(iTotalFrames)*framerate*8.0<<endl;
-  cout<<"WZ Avg PSNR         :   "<<dPSNRAvg<<endl;
   cout<<"Avg Rate (Key+WZ)   :   "<<totalrate*framerate/
                                    (double)iTotalFrames*8.0+
                                    dKeyCodingRate[0]*framerate*

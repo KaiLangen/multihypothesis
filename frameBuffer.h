@@ -28,6 +28,7 @@ public:
   int _frameSize;
   int _yuvFrameSize;
   int _paddedFrameSize;
+  int _paddedChromaSize;
 
   RefBuffer(int width, int height, int windowSize);
 
