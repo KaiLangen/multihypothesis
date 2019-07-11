@@ -161,7 +161,7 @@ void Decoder::decodeWzFrame()
       cout << "PSNR Recoloured Chroma (U): " << currPSNRU << endl;
 
       float currPSNRV = calcPSNR(oriCurrFrame+_frameSize+chsize, imgSI+chsize, chsize);
-      cout << "PSNR Recoloured Chroma (V): " << currPSNRU << endl;
+      cout << "PSNR Recoloured Chroma (V): " << currPSNRV << endl;
       dPSNRUAvg += currPSNRU;
       dPSNRVAvg += currPSNRV;
       memcpy(currFrame+_frameSize, imgSI, _frameSize>>1);
