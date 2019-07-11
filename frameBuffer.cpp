@@ -61,11 +61,15 @@ void RefBuffer::updateRecWindow()
     _nextRec = 0;
     _isFull = true;
   }
+  // copy the raw frame directly
   memcpy(_refFrames[_nextRec][0], _currFrame[0], _yuvFrameSize);
-  memcpy(_refFrames[_nextRec][1], _currFrame[1], _paddedChromaSize);
-  memcpy(_refFrames[_nextRec][2], _currFrame[2], _paddedChromaSize);
-  pad(_currFrame[0], _currFrame[3], _width, _height, _padSize);
-  memcpy(_refFrames[_nextRec][3], _currFrame[3], _paddedFrameSize);
+
+  // pad each channel into a separate buffer
+  pad(_currFrame[0], _refFrames[_nextRec][3], _width, _height, _padSize);
+  pad(_currFrame[0]+_frameSize, _refFrames[_nextRec][1],
+      _width/2, _height/2, _padSize/2);
+  pad(_currFrame[0]+5*(_frameSize>>2), _refFrames[_nextRec][2],
+      _width/2, _height/2, _padSize/2);
   _nextRec++;
 }
 

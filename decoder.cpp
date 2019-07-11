@@ -89,10 +89,7 @@ void Decoder::decodeWzFrame()
   double dPSNRAvg=0;
   double dPSNRUAvg=0;
   double dPSNRVAvg=0;
-  double dPSNRSIAvg=0;
-  double dPSNRPrevSIAvg=0;
-  double dPSNRPrevUAvg=0;
-  double dPSNRPrevVAvg=0;
+  double dPSNRWeightedAvg=0;
   int iDecodeWZFrames=0;
 
   clock_t timeStart, timeEnd;
@@ -165,14 +162,17 @@ void Decoder::decodeWzFrame()
 
       float currPSNRV = calcPSNR(oriCurrFrame+_frameSize+chsize, imgSI+chsize, chsize);
       cout << "PSNR Recoloured Chroma (V): " << currPSNRU << endl;
-      dPSNRSIAvg += (currPSNRU + currPSNRV) / 2;
+      dPSNRUAvg += currPSNRU;
+      dPSNRVAvg += currPSNRV;
       memcpy(currFrame+_frameSize, imgSI, _frameSize>>1);
 //      dPSNRAvg += calcPSNR(oriCurrFrame, currFrame, fullFrameSize);
 
       float currPSNRLuma = calcPSNR(oriCurrFrame, currFrame, _frameSize);
       cout << "PSNR Luma:" << currPSNRLuma << endl;
+      float currWeightedAvg = (currPSNRLuma*6 + currPSNRU + currPSNRV) / 8;
+      dPSNRWeightedAvg += currWeightedAvg;
       cout << "PSNR Frame Avg: ";
-      cout << (currPSNRLuma*6 + currPSNRU + currPSNRV) / 8 << endl << endl;
+      cout << currWeightedAvg << endl << endl;
 
       // update frameBuffer
       refFrames->updateRecWindow();
@@ -232,22 +232,14 @@ void Decoder::decodeWzFrame()
                                    (iNumGOP)/(double)iTotalFrames<<endl;
   cout<<"Avg    PSNR         :   "<<(dPSNRAvg+dKeyPSNR[0])/2<<endl;
   cout<<"--------------------------------------------------"<<endl;
-  dPSNRSIAvg /= iDecodeWZFrames;
   dPSNRUAvg /= iDecodeWZFrames;
   dPSNRVAvg /= iDecodeWZFrames;
+  dPSNRWeightedAvg /= iDecodeWZFrames;
   cout<<"PROPOSED SOLUTION   :"<< endl;
-  cout<<"Luma SI Avg PSNR    :   "<<dPSNRSIAvg<<endl;
   cout<<"Chroma (U) Avg PSNR :   "<<dPSNRUAvg<<endl;
   cout<<"Chroma (V) Avg PSNR :   "<<dPSNRVAvg<<endl;
+  cout<<"Weighted Avg PSNR   :   "<<dPSNRWeightedAvg<<endl;
   cout<<"Chroma rate (kbps)  :   "<<chromarate*(double)framerate/(double)iTotalFrames<<endl;
-  cout<<"--------------------------------------------------"<<endl;
-  dPSNRPrevSIAvg /= iDecodeWZFrames;
-  dPSNRPrevUAvg /= iDecodeWZFrames;
-  dPSNRPrevVAvg /= iDecodeWZFrames;
-  cout<<"COPY PREV FRAME     :"<< endl;
-  cout<<"Luma SI Avg PSNR    :   "<<dPSNRPrevSIAvg<<endl;
-  cout<<"Chroma (U) Avg PSNR :   "<<dPSNRPrevUAvg<<endl;
-  cout<<"Chroma (V) Avg PSNR :   "<<dPSNRPrevVAvg<<endl;
   cout<<"--------------------------------------------------"<<endl;
 }
 
