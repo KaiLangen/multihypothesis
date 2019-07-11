@@ -100,11 +100,8 @@ void Decoder::decodeWzFrame()
 // Luma Buffers
   imgpel* oriCurrFrame  = _fb->getorigFrame();
   imgpel* currFrame     = _fb->getCurrFrame();
-  imgpel* prevKey       = _fb->getPrevFrame();
-  imgpel* nextKey       = _fb->getNextFrame();
   imgpel* imgSI         = _fb->getSideInfoFrame();
-  imgpel* nextFrame     = new imgpel[fullFrameSize];
-  imgpel* prevFrame     = new imgpel[fullFrameSize];
+  imgpel* prevKey       = new imgpel[fullFrameSize];
 
   RefBuffer* refFrames  = _fb->getRefBuffer();
 
@@ -123,22 +120,19 @@ void Decoder::decodeWzFrame()
 
   timeStart = clock();
 
+  // read key-frames into reference buffer
+  refFrames->init(fKeyReadPtr);
+
   // Main loop
   // ---------------------------------------------------------------------------
   for (int keyFrameNo = 0; keyFrameNo < _numFrames/_gop; keyFrameNo++) {
-    // Read previous and next key frame
+    // Read previous key frame and write to file
     fseek(fKeyReadPtr, (3*(keyFrameNo)*_frameSize)>>1, SEEK_SET);
     fread(prevKey, fullFrameSize, 1, fKeyReadPtr);
-    fread(nextKey, fullFrameSize, 1, fKeyReadPtr);
-
-    // write prevKey to output file
     fwrite(prevKey, fullFrameSize, 1, fWritePtr);
 
     // copy into frame buffers
-    memcpy(prevFrame, prevKey, fullFrameSize);
-    memcpy(nextFrame, nextKey, fullFrameSize);
 
-    refFrames->initPrevNextBuffers();
     int idx = 1;
     while (idx < _gop) {
       // Start decoding the WZ frame
@@ -146,13 +140,13 @@ void Decoder::decodeWzFrame()
 
       cout << "Decoding frame " << wzFrameNo << " (Wyner-Ziv frame)" << endl;
       // Read current frame from the original file (for comparison)
-      fseek(fReadPtr, (3*wzFrameNo*_frameSize)>>1, SEEK_SET);
+      fseek(fReadPtr, wzFrameNo*fullFrameSize, SEEK_SET);
       fread(oriCurrFrame, fullFrameSize, 1, fReadPtr);
 
       // ---------------------------------------------------------------------
       // STAGE 2 - Create side information
       // ---------------------------------------------------------------------
-      // Predict from coincident Chroma
+      // Predict Chroma from coincident Luma
        fseek(oracleReadPtr, (3*(wzFrameNo)*_frameSize)>>1, SEEK_SET);
        fread(currFrame, fullFrameSize, 1, oracleReadPtr);
        _si->oracle_MEMC(refFrames, imgSI);
@@ -161,11 +155,10 @@ void Decoder::decodeWzFrame()
       cout << "PSNR Recoloured Chroma (U): " << currPSNRU << endl;
 
       float currPSNRV = calcPSNR(oriCurrFrame+_frameSize+chsize, imgSI+chsize, chsize);
-      cout << "PSNR Recoloured Chroma (V): " << currPSNRU << endl;
+      cout << "PSNR Recoloured Chroma (V): " << currPSNRV << endl;
       dPSNRUAvg += currPSNRU;
       dPSNRVAvg += currPSNRV;
       memcpy(currFrame+_frameSize, imgSI, _frameSize>>1);
-//      dPSNRAvg += calcPSNR(oriCurrFrame, currFrame, fullFrameSize);
 
       float currPSNRLuma = calcPSNR(oriCurrFrame, currFrame, _frameSize);
       cout << "PSNR Luma:" << currPSNRLuma << endl;
@@ -173,32 +166,14 @@ void Decoder::decodeWzFrame()
       dPSNRWeightedAvg += currWeightedAvg;
       cout << "PSNR Frame Avg: ";
       cout << currWeightedAvg << endl << endl;
-
-      // update frameBuffer
-      refFrames->updateRecWindow();
-      
-//      // SI was generated using Chroma-ME, go back a frame
-//      if (idx % 2 == 0) {
-//        memcpy(nextFrame, currFrame, fullFrameSize);
-//        idx--;
-//      }
-//      // SI was generated using MCI
-//      else if (idx < _gop-1) {
-//        // update prevFrame ptr
-//        memcpy(prevFrame, nextFrame, fullFrameSize);
-//
-//        // write curr and next frames, then skip forward three frame
-//        fwrite(currFrame, fullFrameSize, 1, fWritePtr);
-//        fwrite(nextFrame, fullFrameSize, 1, fWritePtr);
-//        idx += 3;
-//      }
-//      // SI was generated using MCI and curr frame is LAST in the GOP
-//      else {}
-        // write only the current frame to output
-        fwrite(currFrame, fullFrameSize, 1, fWritePtr);
-        idx++;
-        iDecodeWZFrames++;
+ 
+      // write the current frame to output
+      fwrite(currFrame, fullFrameSize, 1, fWritePtr);
+      idx++;
+      iDecodeWZFrames++;
     }
+    // update frameBuffer after each GOP
+    refFrames->updateRecWindow(fKeyReadPtr, keyFrameNo);
   }
 
   timeEnd = clock();
@@ -241,6 +216,8 @@ void Decoder::decodeWzFrame()
   cout<<"Weighted Avg PSNR   :   "<<dPSNRWeightedAvg<<endl;
   cout<<"Chroma rate (kbps)  :   "<<chromarate*(double)framerate/(double)iTotalFrames<<endl;
   cout<<"--------------------------------------------------"<<endl;
+
+  delete [] prevKey;
 }
 
 // -----------------------------------------------------------------------------

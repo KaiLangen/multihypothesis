@@ -233,8 +233,8 @@ readConfig(string filename, bool isEnc)
       if (searchWindow < 0 || searchWindow > 32)
         throw invalid_argument("Invalid search-window size");
       int nRefFrames = atoi(configMap["NumRefFrames"].c_str());
-      if (nRefFrames < 0)
-        throw invalid_argument("Invalid frame sliding-window size");
+      if (nRefFrames < 2)
+        throw invalid_argument("Invalid frame-buffer size (<2)");
       int spatialSmoothing = atoi(configMap["SearchWindowSize"].c_str());
       if (spatialSmoothing < 0)
         throw invalid_argument("Invalid spatial smoothing parameter");

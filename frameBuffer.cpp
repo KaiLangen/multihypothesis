@@ -18,25 +18,10 @@ RefBuffer::RefBuffer(int width, int height, int windowSize)
   _yuvFrameSize = 3*_frameSize>>1;
   _paddedFrameSize = (width+2*_padSize) * (height+2*_padSize);
   _paddedChromaSize = ((width>>1)+_padSize) * ((height>>1)+_padSize);
-  _refFrames.resize(windowSize, vector<imgpel*>(4));
-  for (size_t i = 0; i < _refFrames.size(); i++) {
-    _refFrames[i][0] = new imgpel[_yuvFrameSize];
-    _refFrames[i][1] = new imgpel[_paddedChromaSize];
-    _refFrames[i][2] = new imgpel[_paddedChromaSize];
-    _refFrames[i][3] = new imgpel[_paddedFrameSize];
-  }
   _currFrame.push_back(new imgpel[_yuvFrameSize]);
   _currFrame.push_back(new imgpel[_paddedChromaSize]);
   _currFrame.push_back(new imgpel[_paddedChromaSize]);
   _currFrame.push_back(new imgpel[_paddedFrameSize]);
-  _prevKeyFrame.push_back(new imgpel[_yuvFrameSize]);
-  _prevKeyFrame.push_back(new imgpel[_paddedChromaSize]);
-  _prevKeyFrame.push_back(new imgpel[_paddedChromaSize]);
-  _prevKeyFrame.push_back(new imgpel[_paddedFrameSize]);
-  _nextKeyFrame.push_back(new imgpel[_yuvFrameSize]);
-  _nextKeyFrame.push_back(new imgpel[_paddedChromaSize]);
-  _nextKeyFrame.push_back(new imgpel[_paddedChromaSize]);
-  _nextKeyFrame.push_back(new imgpel[_paddedFrameSize]);
 }
 
 RefBuffer::~RefBuffer()
@@ -46,23 +31,23 @@ RefBuffer::~RefBuffer()
       delete [] _refFrames[v][i];
   }
 
-  // delete curr, prev, next
+  // delete curr
   for (int i = 0; i < 4; i++) {
     delete [] _currFrame[i];
-    delete [] _prevKeyFrame[i];
-    delete [] _nextKeyFrame[i];
   }
 }
 
-void RefBuffer::updateRecWindow()
+void RefBuffer::updateRecWindow(FILE* fKeyReadPtr, int prevKeyNo)
 {
-  if (_windowSize == 0) return;
+  // loop to start of circular buffer
   if (_nextRec >= _windowSize) {
     _nextRec = 0;
     _isFull = true;
   }
-  // copy the raw frame directly
-  memcpy(_refFrames[_nextRec][0], _currFrame[0], _yuvFrameSize);
+
+  // read the newest frame from file
+  fseek(fKeyReadPtr, (prevKeyNo+_windowSize-1)*_yuvFrameSize, SEEK_SET);
+  fread(_refFrames[_nextRec][0], _yuvFrameSize, 1, fKeyReadPtr);
 
   // pad each channel into a separate buffer
   pad(_currFrame[0], _refFrames[_nextRec][3], _width, _height, _padSize);
@@ -75,23 +60,32 @@ void RefBuffer::updateRecWindow()
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
-void RefBuffer::initPrevNextBuffers() {
+void RefBuffer::init(FILE* fKeyReadPtr) {
   int ww = _width>>1;
   int hh = _height>>1;
   int chsize = _frameSize>>2;
-  vector<imgpel*> prev = _prevKeyFrame;
-  vector<imgpel*> next = _nextKeyFrame;
-  imgpel* prevU = prev[0] + _frameSize;
-  imgpel* prevV = prevU + chsize;
-  imgpel* nextU = next[0] + _frameSize;
-  imgpel* nextV = nextU + chsize;
 
-  pad(prevU, prev[1], ww, hh, 20);
-  pad(prevV, prev[2], ww, hh, 20);
-  pad(prev[0], prev[3], _width, _height, 40);
-  pad(nextU, next[1], ww, hh, 20);
-  pad(nextV, next[2], ww, hh, 20);
-  pad(next[0], next[3], _width, _height, 40);
+  _refFrames.resize(_windowSize, vector<imgpel*>(4));
+  // allocate space for reference frames
+  for (size_t i = 0; i < _refFrames.size(); i++) {
+    _refFrames[i][0] = new imgpel[_yuvFrameSize];
+    _refFrames[i][1] = new imgpel[_paddedChromaSize];
+    _refFrames[i][2] = new imgpel[_paddedChromaSize];
+    _refFrames[i][3] = new imgpel[_paddedFrameSize];
+  }
+
+  // read data from file and pad into extra buffers
+  // leave room for trailing reference
+  for (size_t i = 0; i < _refFrames.size()-1; i++) {
+    fseek(fKeyReadPtr, _yuvFrameSize*i, SEEK_SET);
+    fread(_refFrames[i][0], _yuvFrameSize, 1, fKeyReadPtr);
+    imgpel* ptrU = _refFrames[i][0] + _frameSize;
+    imgpel* ptrV = ptrU + chsize;
+    pad(ptrU, _refFrames[i][1], ww, hh, 20);
+    pad(ptrV, _refFrames[i][2], ww, hh, 20);
+    pad(_refFrames[i][0], _refFrames[i][3], _width, _height, 40);
+    _nextRec++;
+  }
 
 }
 
@@ -105,10 +99,6 @@ FrameBuffer::FrameBuffer(int width, int height, int windowSize)
   _frameSize        = width * height;
   _origFrame        = new imgpel[3*(_frameSize>>1)];
   _sideInfoFrame    = new imgpel[3*(_frameSize>>1)];
-  _dctFrame         = new int[3*(_frameSize>>1)];
-  _quantDctFrame    = new int[3*(_frameSize>>1)];
-  _decFrame         = new int[3*(_frameSize>>1)];
-  _invQuantDecFrame = new int[3*(_frameSize>>1)];
   _rBuff            = new RefBuffer(width, height, windowSize);
 
 }
@@ -117,10 +107,6 @@ FrameBuffer::~FrameBuffer()
 {
   delete [] _origFrame;
   delete [] _sideInfoFrame;
-  delete [] _dctFrame;
-  delete [] _quantDctFrame;
-  delete [] _decFrame;
-  delete [] _invQuantDecFrame;
   delete _rBuff;
 }
 

@@ -183,40 +183,15 @@ SideInformation::ME(imgpel* refFrameU, imgpel* currFrameU,
 void SideInformation::oracle_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
 {
   int chsize = (_width*_height)>>2;
-  if (_p == 0) {
-    memcpy(sideInfo, refFrames->_prevKeyFrame[1], chsize);
-    memcpy(sideInfo+chsize, refFrames->_prevKeyFrame[2], chsize);
-    return;
-  }
   int padSize = 40;
   auto currFrame = refFrames->_currFrame;
-  auto prevKey = refFrames->_prevKeyFrame;
-  auto nextKey = refFrames->_nextKeyFrame;
 
   pad(currFrame[0], currFrame[3], _width, _height, padSize);
 
   vector<mvinfo*> mvs;
   vector<imgpel*> refsU;
   vector<imgpel*> refsV;
-  // prev Key
-  mvs.push_back(new mvinfo[_nmv]);
-  refsU.push_back(prevKey[1]);
-  refsV.push_back(prevKey[2]);
-  ME(prevKey[3], currFrame[3], prevKey[3], currFrame[3], mvs.back());
-  for (int iter = 0; iter < _ss; iter++) {
-    spatialSmooth(prevKey[3], prevKey[3], currFrame[3], currFrame[3],
-                  mvs.back(), _blockSize, padSize); 
-  }
-  // next Key
-  mvs.push_back(new mvinfo[_nmv]);
-  refsU.push_back(nextKey[1]);
-  refsV.push_back(nextKey[2]);
-  ME(nextKey[3], currFrame[3], nextKey[3], currFrame[3], mvs.back());
-  for (int iter = 0; iter < _ss; iter++) {
-    spatialSmooth(nextKey[3], nextKey[3], currFrame[3], currFrame[3],
-                  mvs.back(), _blockSize, padSize);
-  }
-  // reconstructed WZ frames
+  // all reference Key-frames
   for(auto it = refFrames->begin(); it != refFrames->end(); it++)
   {
     mvs.push_back(new mvinfo[_nmv]);

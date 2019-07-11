@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <cstring>
+#include <cstdio>
 
 #include "defs.h"
 
@@ -17,8 +18,6 @@ public:
   // 4 - Padded Y channel
   vector<vector<imgpel*>> _refFrames;
   vector<imgpel*> _currFrame;
-  vector<imgpel*> _prevKeyFrame;
-  vector<imgpel*> _nextKeyFrame;
   int _windowSize;
   int _nextRec;
   bool _isFull;
@@ -36,9 +35,9 @@ public:
 
   // ---------------------------------------------------------------------------
   // ---------------------------------------------------------------------------
-  void updateRecWindow();
+  void updateRecWindow(FILE* fKeyReadPtr, int prevKeyNo);
 
-  void initPrevNextBuffers();
+  void init(FILE* fKeyReadPtr);
 
   vector<vector<imgpel*>>::iterator begin() { return _refFrames.begin(); }
 
@@ -50,7 +49,6 @@ public:
 
   // ---------------------------------------------------------------------------
   // ---------------------------------------------------------------------------
-  vector<imgpel*> getCurrFrame() { return _currFrame; }
 };
 
 class FrameBuffer
@@ -61,26 +59,15 @@ public:
   ~FrameBuffer();
 
   //  Luma
-  imgpel*  getPrevFrame()        { return _rBuff->_prevKeyFrame[0]; };
   imgpel*  getCurrFrame()        { return _rBuff->_currFrame[0]; };
-  imgpel*  getNextFrame()        { return _rBuff->_nextKeyFrame[0]; };
   imgpel*  getorigFrame()        { return _origFrame; };
   imgpel*  getSideInfoFrame()    { return _sideInfoFrame; };
-  int*     getDctFrame()         { return _dctFrame; };
-  int*     getQuantDctFrame()    { return _quantDctFrame; };
-  int*     getDecFrame()         { return _decFrame; };
-  int*     getInvQuantDecFrame() { return _invQuantDecFrame; };
   RefBuffer* getRefBuffer()      { return _rBuff; };
 
 private:
   int      _frameSize;
   imgpel*  _origFrame;
   imgpel*  _sideInfoFrame;
-
-  int*     _dctFrame;
-  int*     _quantDctFrame;
-  int*     _decFrame;
-  int*     _invQuantDecFrame;
   RefBuffer* _rBuff;
 };
 
