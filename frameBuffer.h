@@ -28,7 +28,6 @@ public:
   int _frameSize;
   int _yuvFrameSize;
   int _paddedFrameSize;
-  int _paddedChromaSize;
 
   RefBuffer(int width, int height, int windowSize);
 
@@ -66,10 +65,6 @@ public:
   imgpel*  getNextFrame()        { return _rBuff->_nextKeyFrame[0]; };
   imgpel*  getorigFrame()        { return _origFrame; };
   imgpel*  getSideInfoFrame()    { return _sideInfoFrame; };
-  int*     getDctFrame()         { return _dctFrame; };
-  int*     getQuantDctFrame()    { return _quantDctFrame; };
-  int*     getDecFrame()         { return _decFrame; };
-  int*     getInvQuantDecFrame() { return _invQuantDecFrame; };
   RefBuffer* getRefBuffer()      { return _rBuff; };
 
 private:
@@ -77,10 +72,6 @@ private:
   imgpel*  _origFrame;
   imgpel*  _sideInfoFrame;
 
-  int*     _dctFrame;
-  int*     _quantDctFrame;
-  int*     _decFrame;
-  int*     _invQuantDecFrame;
   RefBuffer* _rBuff;
 };
 
@@ -89,5 +80,8 @@ void pad(imgpel* src, imgpel* dst, int width, int height, int iPadSize);
 
 void bilinear(imgpel *source, imgpel *buffer, int buffer_w, int buffer_h,
               int picwidth, int picheight, int px, int py);
+
+void decimate2(imgpel *source, imgpel *buffer, int buffer_w, int buffer_h,
+               int picwidth, int px, int py);
 #endif // ENCODER_INC_FRAMEBUFFER_H
 
