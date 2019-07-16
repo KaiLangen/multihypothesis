@@ -204,8 +204,8 @@ void SideInformation::oracle_MEMC(RefBuffer* refFrames, imgpel* sideInfo)
     }
   }
 
-  MC(sideInfo, mvs, refsU, padSize/2);
-  MC(sideInfo+chsize, mvs, refsV, padSize/2);
+  MC(sideInfo, mvs, refsU, padSize);
+  MC(sideInfo+chsize, mvs, refsV, padSize);
 
   for (auto m : mvs)
     delete [] m;
@@ -348,13 +348,16 @@ SideInformation::MC(imgpel* imgDst, vector<mvinfo*> mvs,
   int cX, cY, mvX, mvY;
   double fWeightSum, fDist;
   int hblock = _blockSize>>1;
-  int ww = _width>>1;
+  int ww = _width >> 1;
+  int paddedWidth = _width + 2*padSize;
   double* fTmp = new double[hblock*hblock];
+  imgpel* buffer = new imgpel[hblock*hblock];
   mvinfo* candidate;
-  int paddedWidth = (2*padSize + ww);
   imgpel* ref;
+
+  // for every block
   for (int i = 0; i < _nmv; i++) {
-    // init vals to zero
+    // init weight and weightsum values to zero
     fWeightSum = 0.0;
     for (int j = 0; j < hblock*hblock; j++)
         fTmp[j] = 0.0;
@@ -364,27 +367,34 @@ SideInformation::MC(imgpel* imgDst, vector<mvinfo*> mvs,
       fWeightSum += (1/(fDist+(float)0.001));
     }
 
+    // for every reference frame "candidate"
     for (size_t fIdx = 0; fIdx < mvs.size(); fIdx++) {
       candidate = mvs[fIdx];
-      cX   = candidate[i].iCx/2;
-      cY   = candidate[i].iCy/2;
-      mvX  = cX + candidate[i].iMvx/2 + padSize;
-      mvY  = cY + candidate[i].iMvy/2 + padSize;
+      cX   = candidate[i].iCx;
+      cY   = candidate[i].iCy;
+      mvX  = cX + candidate[i].iMvx + padSize;
+      mvY  = cY + candidate[i].iMvy + padSize;
       fDist = candidate[i].fDist;
       ref = refs[fIdx];
+
+      // must MC, and decimate down to Chroma resolution
+      decimate2(ref, buffer, hblock, hblock,
+                paddedWidth, mvX, mvY);
+      
       for (int j = 0; j < hblock; j++) {
         for (int k = 0; k < hblock; k++) {
-          fTmp[k+j*hblock] += ref[k+mvX+(j+mvY)*paddedWidth] *
+          fTmp[k+j*hblock] += buffer[k+j*hblock] *
                                   (1/(fDist+(float)0.001));
         }
       }
     }
     for (int j = 0; j < hblock; j++) {
       for (int k = 0; k < hblock; k++) {
-      imgDst[cX+k+(cY+j)*ww] = (imgpel)((fTmp[k+j*hblock]) /
+      imgDst[cX/2+k+(cY/2+j)*ww] = (imgpel)((fTmp[k+j*hblock]) /
                                             fWeightSum);
       }
     }
   }
   delete [] fTmp;
+  delete [] buffer;
 }

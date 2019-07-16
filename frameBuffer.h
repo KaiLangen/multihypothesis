@@ -27,7 +27,6 @@ public:
   int _frameSize;
   int _yuvFrameSize;
   int _paddedFrameSize;
-  int _paddedChromaSize;
 
   RefBuffer(int width, int height, int windowSize);
 
@@ -76,5 +75,8 @@ void pad(imgpel* src, imgpel* dst, int width, int height, int iPadSize);
 
 void bilinear(imgpel *source, imgpel *buffer, int buffer_w, int buffer_h,
               int picwidth, int picheight, int px, int py);
+
+void decimate2(imgpel *source, imgpel *buffer, int buffer_w, int buffer_h,
+               int picwidth, int px, int py);
 #endif // ENCODER_INC_FRAMEBUFFER_H
 

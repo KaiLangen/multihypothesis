@@ -17,10 +17,16 @@ RefBuffer::RefBuffer(int width, int height, int windowSize)
   _frameSize = width * height;
   _yuvFrameSize = 3*_frameSize>>1;
   _paddedFrameSize = (width+2*_padSize) * (height+2*_padSize);
-  _paddedChromaSize = ((width>>1)+_padSize) * ((height>>1)+_padSize);
+  _refFrames.resize(windowSize, vector<imgpel*>(4));
+  for (size_t i = 0; i < _refFrames.size(); i++) {
+    _refFrames[i][0] = new imgpel[_yuvFrameSize];
+    _refFrames[i][1] = new imgpel[_paddedFrameSize];
+    _refFrames[i][2] = new imgpel[_paddedFrameSize];
+    _refFrames[i][3] = new imgpel[_paddedFrameSize];
+  }
   _currFrame.push_back(new imgpel[_yuvFrameSize]);
-  _currFrame.push_back(new imgpel[_paddedChromaSize]);
-  _currFrame.push_back(new imgpel[_paddedChromaSize]);
+  _currFrame.push_back(new imgpel[_paddedFrameSize]);
+  _currFrame.push_back(new imgpel[_paddedFrameSize]);
   _currFrame.push_back(new imgpel[_paddedFrameSize]);
 }
 
@@ -44,18 +50,28 @@ void RefBuffer::updateRecWindow(FILE* fKeyReadPtr, int prevKeyNo)
     _nextRec = 0;
     _isFull = true;
   }
-
   // read the newest frame from file
-  fseek(fKeyReadPtr, (prevKeyNo+_windowSize-1)*_yuvFrameSize, SEEK_SET);
-  fread(_refFrames[_nextRec][0], _yuvFrameSize, 1, fKeyReadPtr);
+  imgpel* newKey = _refFrames[_nextRec][0];
+  fseek(fKeyReadPtr, (prevKeyNo+_windowSize)*_yuvFrameSize, SEEK_SET);
+  fread(newKey, _yuvFrameSize, 1, fKeyReadPtr);
+  int ww = _width>>1;
+  int hh = _height>>1;
+  imgpel* UChroma = new imgpel[_frameSize];
+  imgpel* VChroma = new imgpel[_frameSize];
 
-  // pad each channel into a separate buffer
-  pad(_currFrame[0], _refFrames[_nextRec][3], _width, _height, _padSize);
-  pad(_currFrame[0]+_frameSize, _refFrames[_nextRec][1],
-      _width/2, _height/2, _padSize/2);
-  pad(_currFrame[0]+5*(_frameSize>>2), _refFrames[_nextRec][2],
-      _width/2, _height/2, _padSize/2);
+  // upsample Chroma planes and pad
+  bilinear(newKey+_frameSize, UChroma,
+           ww, hh, ww, hh, 0, 0);
+  bilinear(newKey+5*(_frameSize>>2), VChroma,
+           ww, hh, ww, hh, 0, 0);
+  
+  pad(newKey, _refFrames[_nextRec][3], _width, _height, 40);
+  pad(UChroma, _refFrames[_nextRec][1], _width, _height, 40);
+  pad(VChroma, _refFrames[_nextRec][2], _width, _height, 40);
+
   _nextRec++;
+  delete [] UChroma;
+  delete [] VChroma;
 }
 
 // ---------------------------------------------------------------------------
@@ -65,28 +81,35 @@ void RefBuffer::init(FILE* fKeyReadPtr) {
   int hh = _height>>1;
   int chsize = _frameSize>>2;
 
+  imgpel* UChroma = new imgpel[_frameSize];
+  imgpel* VChroma = new imgpel[_frameSize];
+
   _refFrames.resize(_windowSize, vector<imgpel*>(4));
   // allocate space for reference frames
   for (size_t i = 0; i < _refFrames.size(); i++) {
     _refFrames[i][0] = new imgpel[_yuvFrameSize];
-    _refFrames[i][1] = new imgpel[_paddedChromaSize];
-    _refFrames[i][2] = new imgpel[_paddedChromaSize];
+    _refFrames[i][1] = new imgpel[_paddedFrameSize];
+    _refFrames[i][2] = new imgpel[_paddedFrameSize];
     _refFrames[i][3] = new imgpel[_paddedFrameSize];
   }
 
   // read data from file and pad into extra buffers
-  // leave room for trailing reference
-  for (size_t i = 0; i < _refFrames.size()-1; i++) {
+  for (size_t i = 0; i < _refFrames.size(); i++) {
     fseek(fKeyReadPtr, _yuvFrameSize*i, SEEK_SET);
     fread(_refFrames[i][0], _yuvFrameSize, 1, fKeyReadPtr);
     imgpel* ptrU = _refFrames[i][0] + _frameSize;
     imgpel* ptrV = ptrU + chsize;
-    pad(ptrU, _refFrames[i][1], ww, hh, 20);
-    pad(ptrV, _refFrames[i][2], ww, hh, 20);
+
+    bilinear(ptrU, UChroma, ww, hh, ww, hh, 0, 0);
+    bilinear(ptrV, VChroma, ww, hh, ww, hh, 0, 0);
+    pad(UChroma, _refFrames[i][1], _width, _height, 40);
+    pad(VChroma, _refFrames[i][2], _width, _height, 40);
     pad(_refFrames[i][0], _refFrames[i][3], _width, _height, 40);
     _nextRec++;
   }
 
+  delete [] UChroma;
+  delete [] VChroma;
 }
 
 // -----------------------------------------------------------------------------
@@ -200,4 +223,11 @@ void bilinear(imgpel *source, imgpel *buffer, int buffer_w, int buffer_h,
       buffer[2*i+(2*j+1)*buffer_r]=(a+c)/2;
       buffer[(2*i+1)+(2*j+1)*buffer_r]=(a+b+c+d)/4;
     }
+}
+
+void decimate2(imgpel* source, imgpel* buffer, int buffer_w, int buffer_h,
+               int picwidth, int px, int py){
+  for(int j=0;j<buffer_h;j++)
+    for(int i=0;i<buffer_w;i++)
+      buffer[i + j*buffer_w] = source[(px+2*i) + (py+2*j)*picwidth];
 }
